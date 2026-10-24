@@ -1,8 +1,8 @@
 // Connect Selah to your Supabase project (see README.md, "Turn on accounts").
 // Leave these empty to run the demo with sample people instead.
 window.SELAH_CONFIG = {
-  supabaseUrl: "",      // like "https://abcdefghij.supabase.co"
-  supabaseAnonKey: "",  // the publishable key ("anon public" on older projects), from Project Settings > API Keys
-  siteUrl: "",          // where the web version is hosted, used in sign-up and password-reset emails
+  supabaseUrl: "https://oawqimmgdxntijrgdoef.supabase.co",
+  supabaseAnonKey: "sb_publishable_oZyEyVd73fOyaKTT-uVIow_1xE5tpp-",  // publishable key: safe to include in the app
+  siteUrl: "http://localhost:8080",  // change to the web address once the app is online (also in Supabase › Authentication › URL Configuration)
   vapidPublicKey: ""    // for notifications in the web version (README, "Turn on push notifications")
 };
