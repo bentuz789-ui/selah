@@ -1,0 +1,16 @@
+{
+  "appId": "com.selahapp.selah",
+  "appName": "Selah",
+  "webDir": "www",
+  "backgroundColor": "#EEF2F5",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#EEF2F5",
+      "showSpinner": false
+    },
+    "PushNotifications": {
+      "presentationOptions": []
+    }
+  }
+}

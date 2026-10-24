@@ -1,0 +1,1579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Selah</title>
+<meta name="description" content="Share moments, read the Bible, and pray together with friends.">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151F26" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Selah">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="live.js"></script>
+<style>
+/* page base: what the artifact viewer used to provide */
+*,*::before,*::after{box-sizing:border-box}
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{margin:0;overscroll-behavior:none}
+img{max-width:100%}
+[hidden]{display:none!important}
+/* keep the top inset painted in the header colour */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--surface);z-index:100}
+</style>
+<style>
+/* Layout: a single phone-width app column (header / scrolling view / tab bar), centred on wide screens. */
+:root{
+  --bg:#EEF2F5; --surface:#FFFFFF; --ink:#15212B; --muted:#5A6B78; --line:#DBE3EA;
+  --accent:#2E5E50; --accent-ink:#FFFFFF; --soft:#E3EEEA;
+  --gold:#F2D27A; --sky:#BFE0F2; --rose:#F4C2C8; --like:#D2475C;
+  --display:"Young Serif", Georgia, serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --scripture:"Literata", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1317; --surface:#151F26; --ink:#E7EDF1; --muted:#8C9DA9; --line:#25333D;
+  --accent:#73B8A1; --accent-ink:#0D1317; --soft:#1C2D2A;
+  --gold:#6E5A20; --sky:#1F4258; --rose:#5A2731; --like:#F0697E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1317; --surface:#151F26; --ink:#E7EDF1; --muted:#8C9DA9; --line:#25333D;
+  --accent:#73B8A1; --accent-ink:#0D1317; --soft:#1C2D2A;
+  --gold:#6E5A20; --sky:#1F4258; --rose:#5A2731; --like:#F0697E; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,textarea{font:inherit;color:var(--ink)}
+svg{display:block}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+.app{height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;background:var(--bg);border-inline:1px solid var(--line);position:relative;overflow:hidden}
+.top{display:flex;align-items:center;justify-content:space-between;padding-block:10px;background:var(--surface);border-bottom:1px solid var(--line)}
+.logo{font-family:var(--display);font-size:26px;letter-spacing:.01em;color:var(--accent)}
+.top .acts{display:flex;gap:6px}
+.ibtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;position:relative}
+.ibtn:hover{background:var(--soft)}
+.dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--like)}
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-block:14px 24px;display:flex;flex-direction:column;gap:14px}
+main>*{flex-shrink:0}
+.cmenu-bg{position:absolute;inset:0;z-index:40;background:rgba(5,10,14,.35)}
+.cmenu{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);z-index:41;width:min(300px,calc(100% - 32px));background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:6px;box-shadow:0 14px 40px rgba(0,0,0,.25);display:flex;flex-direction:column}
+.cmenu button{display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;text-align:left}
+.cmenu button:hover{background:var(--soft)}
+.cmenu .ci{width:40px;height:40px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;flex:0 0 auto}
+.cmenu b{display:block}
+.cmenu small{color:var(--muted)}
+.tab.cam[aria-expanded="true"] .ring{transform:rotate(45deg)}
+.tab.cam .ring{transition:transform .2s}
+.tabs{display:flex;justify-content:space-around;align-items:center;padding-block:6px;background:var(--surface);border-top:1px solid var(--line)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:4px 8px;min-width:56px}
+.tab[aria-current="page"]{color:var(--accent);font-weight:600}
+.tab.cam .ring{width:46px;height:46px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;margin-top:-4px}
+
+/* stories */
+.stories{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.stories::-webkit-scrollbar{display:none}
+.st{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;flex:0 0 auto;width:64px}
+.st .rg{padding:3px;border-radius:50%;background:conic-gradient(var(--accent),#D9A43A,var(--accent))}
+.st.seen .rg{background:var(--line)}
+.st .rg .av{border:2px solid var(--surface)}
+.st span{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.av{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;flex:0 0 auto;font-size:18px}
+.av.sm{width:36px;height:36px;font-size:13px}
+.av.xs{width:28px;height:28px;font-size:11px}
+.plus{position:relative}
+.plus::after{content:"+";position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:700;border:2px solid var(--surface);font-size:14px;line-height:1}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.votd{padding:16px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(160deg,var(--soft),var(--surface))}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:600}
+.votd blockquote{margin:0;font-family:var(--scripture);font-size:19px;line-height:1.45;text-wrap:pretty}
+.votd .ref{font-weight:600;color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;display:inline-flex;gap:6px;align-items:center;background:var(--surface)}
+.pill:hover{border-color:var(--accent)}
+.pill.solid{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+.composer{display:flex;gap:10px;align-items:center;padding:12px}
+.composer .fake{flex:1;text-align:left;border:1px solid var(--line);border-radius:999px;padding:9px 14px;color:var(--muted)}
+
+.post .hd{display:flex;gap:10px;align-items:center;padding:12px}
+.post .who{flex:1;min-width:0}
+.post .who b{display:block}
+.post .who small{color:var(--muted)}
+.art{aspect-ratio:1/1;max-width:100%;position:relative;display:flex;align-items:flex-end;background-size:cover;background-position:center}
+.art img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.overlay-verse{position:relative;margin:16px;padding:12px 14px;border-radius:10px;background:rgba(10,18,24,.55);color:#fff;font-family:var(--scripture);font-size:16px;backdrop-filter:blur(4px)}
+.overlay-verse small{display:block;font-family:var(--body);font-weight:600;opacity:.85;margin-top:4px;font-size:12px}
+.post .bar{display:flex;gap:4px;padding:6px 8px 0}
+.act{display:flex;align-items:center;gap:6px;padding:8px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.act:hover{background:var(--soft)}
+.act.on{color:var(--like)}
+.act.pr.on{color:var(--accent)}
+.post .cap{padding:4px 14px 10px}
+.post .cap b{margin-right:6px}
+.cmts{padding:0 14px 12px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.cmts .c b{margin-right:6px}
+.cform{display:flex;gap:8px;margin-top:4px}
+.cform input{flex:1;border:1px solid var(--line);border-radius:999px;padding:7px 12px;background:var(--bg)}
+.tag{font-size:11px;font-weight:600;color:var(--accent);background:var(--soft);padding:2px 8px;border-radius:999px}
+
+/* bible */
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.reader{padding:20px 18px 24px}
+.reader h2{font-family:var(--display);font-weight:400;font-size:30px;margin:0 0 2px;text-wrap:balance}
+.reader .tr{color:var(--muted);font-size:13px;margin-bottom:14px}
+.text{font-family:var(--scripture);font-size:18px;line-height:1.75;max-width:65ch}
+.v{cursor:pointer;border-radius:3px;padding:1px 0;transition:background .15s}
+.v sup{font-family:var(--body);font-size:11px;font-weight:700;color:var(--accent);margin-right:3px}
+.v.hl-gold{background:var(--gold)} .v.hl-sky{background:var(--sky)} .v.hl-rose{background:var(--rose)}
+.v.sel{text-decoration:underline dotted var(--accent);text-decoration-thickness:2px;text-underline-offset:4px}
+.streak{display:flex;gap:14px;align-items:center;padding:14px 16px;flex-wrap:wrap}
+.rbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pick{font-size:15px;padding:8px 14px}
+.chnav{display:flex;justify-content:space-between;gap:8px;margin-top:22px;flex-wrap:wrap}
+.chnav .pill:disabled{opacity:.4;cursor:default}
+.omit{color:var(--muted);font-style:italic;font-size:15px}
+.omit sup{font-family:var(--body);font-size:11px;font-weight:700;margin-right:3px;font-style:normal}
+.loading{color:var(--muted);font-family:var(--body);font-size:15px}
+.v.flash{animation:flash 2.4s ease-out}
+@keyframes flash{0%,40%{background:var(--gold)}100%{background:transparent}}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:12px}
+.seg button{flex:1;padding:8px;border-radius:9px;font-weight:600;color:var(--muted)}
+.seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.bklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.bk{text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:500}
+.bk.cur,.chgrid .cur{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px}
+.chgrid button{aspect-ratio:1;border:1px solid var(--line);border-radius:10px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--surface)}
+.chgrid button.done:not(.cur){border-color:var(--accent);color:var(--accent);background:var(--soft)}
+.flame{width:46px;height:46px;border-radius:12px;background:linear-gradient(160deg,#F5B342,#E0603A);display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.streak .t{flex:1;min-width:0}
+.prog{height:6px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .4s}
+.selbar{position:absolute;left:12px;right:12px;bottom:76px;z-index:20;background:var(--ink);color:var(--surface);border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.selbar .sw{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface)}
+.selbar .sb{color:var(--surface);font-weight:600;font-size:13px;padding:6px 8px;border-radius:8px}
+.selbar .sb:hover{background:rgba(127,127,127,.25)}
+.selbar .lbl{flex:1 1 100%;font-size:12px;opacity:.8}
+
+/* snap */
+.snapwrap{display:flex;flex-direction:column;gap:12px}
+.canvas{aspect-ratio:9/14;max-width:100%;border-radius:18px;position:relative;overflow:hidden;background-size:cover;background-position:center;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.canvas .cap{position:relative;width:100%;text-align:center;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:17px;padding:8px 12px}
+.canvas .stick{position:relative;margin-top:14px;max-width:80%;background:#fff;color:#15212B;border-radius:12px;padding:10px 14px;font-family:var(--scripture);font-size:15px;transform:rotate(-2deg);box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.canvas .stick small{display:block;font-family:var(--body);font-weight:700;color:#2E5E50;font-size:12px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:40px;height:40px;border-radius:10px;border:2px solid transparent;background-size:cover}
+.swatch[aria-pressed="true"]{border-color:var(--ink)}
+.field{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
+
+/* chats & groups */
+.list{display:flex;flex-direction:column}
+.li{display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;width:100%}
+.li:last-child{border-bottom:0}
+.li .m{flex:1;min-width:0}
+.li .m b{display:block}
+.li .m small{color:var(--muted);display:flex;align-items:center;gap:6px}
+.sq{width:12px;height:12px;border-radius:3px;display:inline-block}
+.sq.new{background:var(--like)} .sq.open{border:2px solid var(--like)} .sq.sent{background:var(--accent)}
+.fire{font-size:13px;font-weight:700;color:#E0603A;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline}
+.sec-h h3{margin:0;font-family:var(--display);font-weight:400;font-size:20px}
+.sec-h small{color:var(--muted)}
+.prayer{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.prayer:last-child{border-bottom:0}
+.prayer p{margin:0}
+
+/* profile */
+.prof{padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.prof .av{width:84px;height:84px;font-size:30px}
+.prof h2{margin:6px 0 0;font-family:var(--display);font-weight:400;font-size:26px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);width:100%;border-top:1px solid var(--line);margin-top:10px}
+.stats div{padding:12px 4px}
+.stats b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.stats small{color:var(--muted)}
+.hlgrid{display:flex;flex-direction:column}
+.hl{padding:12px 14px;border-bottom:1px solid var(--line);font-family:var(--scripture);display:flex;gap:10px}
+.hl:last-child{border-bottom:0}
+.hl i{flex:0 0 6px;border-radius:3px}
+.empty{padding:18px 14px;color:var(--muted);font-size:14px}
+
+/* group pages */
+.back{align-self:flex-start;color:var(--accent);font-weight:600;display:flex;align-items:center;gap:2px;padding:2px 0}
+.gcover{height:130px;border-radius:14px;max-width:100%}
+.ghead{display:flex;flex-direction:column;gap:6px}
+.ghead h2{margin:0;font-family:var(--display);font-weight:400;font-size:28px;text-wrap:balance}
+.ghead small{color:var(--muted)}
+.ghead p{margin:0;max-width:65ch}
+.gtabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.gtab{padding:10px 12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.gtab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.event{display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.event:last-child{border-bottom:0}
+.event .m{flex:1;min-width:0}
+.event .m b,.event .m small{display:block}
+.event .m small{color:var(--muted)}
+.date{flex:0 0 48px;border-radius:10px;background:var(--soft);color:var(--accent);text-align:center;padding:6px 0;line-height:1.1}
+.date small{display:block;text-transform:uppercase;font-size:11px;font-weight:700;letter-spacing:.06em}
+.date b{font-size:20px;font-variant-numeric:tabular-nums}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:14px;padding:16px}
+.mem{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px}
+.gthumb{width:36px;height:36px;border-radius:10px;flex:0 0 auto}
+.badge{min-width:20px;height:20px;border-radius:10px;background:var(--like);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center;padding:0 6px}
+.li .m small .pv{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq{vertical-align:-1px;margin-right:6px}
+
+/* search */
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 14px;color:var(--muted)}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--soft)}
+.search input{flex:1;min-width:0;border:0;background:transparent;outline:none;color:var(--ink)}
+#srch{display:flex;flex-direction:column;gap:14px}
+#cbody{display:contents}
+.pickicon{width:40px;height:40px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;flex:0 0 auto}
+
+/* notifications */
+.count{position:absolute;top:1px;right:-1px;min-width:18px;height:18px;border-radius:9px;background:var(--like);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;padding:0 5px;border:2px solid var(--surface);font-variant-numeric:tabular-nums}
+.nt{display:flex;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;width:100%}
+.nt:last-child{border-bottom:0}
+.nt.unread{background:var(--soft)}
+.nt .m{flex:1;min-width:0;overflow-wrap:anywhere}
+.nt .m small{display:block;color:var(--muted);margin-top:2px}
+.avwrap{position:relative;flex:0 0 auto}
+.ty{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--surface);color:#fff}
+.ty.like{background:var(--like)} .ty.comment{background:#3E6FA8} .ty.message{background:#2E5E50}
+.banner{position:absolute;top:8px;left:12px;right:12px;z-index:90;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.22);display:flex;gap:10px;align-items:center;padding:10px 12px;text-align:left;animation:drop .25s ease-out}
+.banner .m{flex:1;min-width:0;font-size:14px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+@keyframes drop{from{transform:translateY(-130%)}}
+
+/* settings */
+.prof{position:relative}
+.gear{position:absolute;top:10px;right:10px}
+.setrow{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.setrow:last-child{border-bottom:0}
+.setrow .m{flex:1;min-width:0}
+.setrow .m b{display:block}
+.setrow .m small{color:var(--muted)}
+.switch{appearance:none;-webkit-appearance:none;width:48px;height:28px;border-radius:14px;background:var(--line);position:relative;cursor:pointer;flex:0 0 auto;transition:background .2s;margin:0}
+.switch::before{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch:checked{background:var(--accent)}
+.switch:checked::before{transform:translateX(20px)}
+
+/* bible search */
+.bsearch{background:var(--bg)}
+.bsearch .th{display:flex;align-items:center;gap:8px;padding-block:8px;background:var(--surface);border-bottom:1px solid var(--line)}
+.bsfilters{padding-block:10px 0}
+.bsfilters .seg{margin:0}
+.bsfilters .seg button{font-size:13px;white-space:nowrap;padding:8px 4px}
+.bsres{flex:1;min-height:0;overflow-y:auto;padding-block:12px 24px;display:flex;flex-direction:column;gap:12px}
+.bsres>*{flex-shrink:0}
+.res{display:flex;flex-direction:column;gap:2px;text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);width:100%}
+.res:last-child{border-bottom:0}
+.res b{color:var(--accent);font-size:13px}
+.res span{font-family:var(--scripture);font-size:16px;line-height:1.5}
+mark{background:var(--gold);color:inherit;border-radius:2px;padding:0 1px}
+.refjump{display:flex;align-items:center;gap:12px;padding:12px 14px;text-align:left;width:100%}
+.refjump .m{flex:1}
+.refjump .m b{display:block;font-size:17px}
+.refjump .m small{color:var(--muted)}
+.bstip{padding:4px 2px;color:var(--muted);max-width:60ch}
+.bstip b{color:var(--ink);font-size:16px}
+.bstip p{margin:8px 0 0}
+.linkish{color:var(--accent);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+
+/* report & block */
+.post .hd .ibtn{margin-right:-6px;color:var(--muted)}
+.cmts .c{display:flex;gap:6px;align-items:flex-start}
+.cmts .c>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.cmore{color:var(--muted);padding:0 4px;border-radius:6px;line-height:1;flex:0 0 auto}
+.cmore svg{width:16px;height:16px}
+.prayer .ibtn{width:30px;height:30px;color:var(--muted)}
+.li.danger b,.li.danger .pickicon{color:var(--like)}
+.dangerbtn{background:var(--like);border-color:var(--like);color:#fff}
+.dangerline{color:var(--like);border-color:var(--like)}
+.rep-q{margin:0 0 10px;font-weight:600;font-size:16px}
+.rep-ref{margin:0 0 12px;padding:10px 12px;border-left:3px solid var(--line);color:var(--muted);font-family:var(--scripture)}
+.rep-done{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:8px 0}
+.rep-done p{margin:0;color:var(--muted);max-width:40ch}
+.okicon{width:52px;height:52px;border-radius:50%;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-size:26px;font-weight:700}
+.crisis{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--bg)}
+.crisis p{margin:6px 0 0}
+
+/* accounts */
+.auth{background:var(--bg);overflow-y:auto;z-index:70}
+.authbox{display:flex;flex-direction:column;gap:12px;padding-block:36px;max-width:440px;width:100%;margin:0 auto;min-height:100%;justify-content:center}
+.authbox h2{margin:0;font-family:var(--display);font-weight:400;font-size:28px}
+.authhero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-bottom:12px}
+.authhero p{margin:0;color:var(--muted);max-width:32ch;font-size:16px}
+.authlogo{font-size:60px;line-height:1}
+.authform{display:flex;flex-direction:column;gap:8px}
+.authform .toggle{margin-top:4px}
+.big{justify-content:center;padding:13px;font-size:16px}
+.hint{color:var(--muted);font-size:12px;margin-top:-2px}
+.hint.good{color:var(--accent)} .hint.bad{color:var(--like)}
+.autherr{color:var(--like);margin:4px 0 0;font-weight:600}
+button:disabled{opacity:.6;cursor:default}
+
+.pushask{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-block:4px 8px}
+.pushask p{margin:0;color:var(--muted);max-width:36ch}
+
+/* direct messages */
+.thread{background:var(--bg)}
+.thread .th{display:flex;align-items:center;gap:10px;padding-block:8px;background:var(--surface);border-bottom:1px solid var(--line)}
+.thread .th .m{flex:1;min-width:0}
+.thread .th b{display:block}
+.msgs{flex:1;min-height:0;overflow-y:auto;padding-block:14px;display:flex;flex-direction:column;gap:6px}
+.bub{flex-shrink:0;max-width:78%;padding:8px 12px;border-radius:18px 18px 18px 6px;background:var(--surface);border:1px solid var(--line);align-self:flex-start;overflow-wrap:anywhere;text-align:left}
+.bub.me{align-self:flex-end;border-radius:18px 18px 6px 18px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.bub.verse{font-family:var(--scripture)}
+.bub small{display:block;font-family:var(--body);font-weight:600;opacity:.8;font-size:12px;margin-top:2px}
+.bub.share{display:flex;gap:10px;align-items:center}
+.bub .mini{width:44px;height:44px;border-radius:8px;flex:0 0 auto}
+.bub.note,.bub.typing,.bub.me.note{background:transparent;border:0;color:var(--muted);font-size:13px;padding:2px 4px}
+.glassbub{border-color:var(--like);color:var(--like);font-weight:600}
+.mform{display:flex;gap:4px;align-items:center;padding-block:8px;background:var(--surface);border-top:1px solid var(--line)}
+.mform input{flex:1;min-width:0;border:1px solid var(--line);border-radius:999px;padding:9px 14px;background:var(--bg)}
+
+/* overlays */
+.ov{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column}
+.story{background:#000;color:#fff}
+.story .bars{display:flex;gap:4px;padding:10px 12px 6px}
+.story .bars span{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.35);overflow:hidden}
+.story .bars span i{display:block;height:100%;width:0;background:#fff}
+.story .sh{display:flex;align-items:center;gap:10px;padding:4px 12px 10px}
+.story .sh b{flex:1}
+.story .stage{flex:1;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;background-size:cover;background-position:center;margin:0 6px;border-radius:14px;overflow:hidden}
+.story .stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.story .nav{position:absolute;inset:0;display:flex}
+.story .nav button{flex:1}
+.story .reply{display:flex;gap:8px;padding:10px 12px}
+.story .reply input{flex:1;background:transparent;border:1px solid rgba(255,255,255,.5);border-radius:999px;padding:9px 14px;color:#fff}
+.story .reply input::placeholder{color:rgba(255,255,255,.7)}
+.story .xbtn{color:#fff}
+.timer{position:absolute;top:14px;right:14px;z-index:2;background:rgba(0,0,0,.5);border-radius:999px;padding:4px 10px;font-weight:700;font-variant-numeric:tabular-nums}
+.sheetbg{background:rgba(5,10,14,.45);justify-content:flex-end}
+.sheet{background:var(--surface);border-radius:18px 18px 0 0;padding-block:16px 20px;display:flex;flex-direction:column;gap:12px;max-height:85%;overflow-y:auto}
+.sheet>*,.sheet .body>*{flex-shrink:0}
+.sheet .body{display:flex;flex-direction:column;gap:12px}
+.sheet h3{margin:0;font-family:var(--display);font-weight:400;font-size:22px}
+.sheet textarea{min-height:90px;resize:vertical}
+.toast{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:80;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}
+.demo{font-size:12px;color:var(--muted);text-align:center}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top gut">
+    <div class="logo">Selah</div>
+    <div class="acts">
+      <button class="ibtn" id="btnNew" aria-label="Create post"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/></svg></button>
+      <button class="ibtn" id="btnBell" aria-label="Notifications"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2.2 2.2 0 0 0 4 0"/></svg><span class="count" id="bellCount" hidden></span></button>
+      <button class="ibtn" id="btnChats" aria-label="Messages"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="dot" id="msgDot"></span></button>
+    </div>
+  </header>
+  <main id="view" class="gut"></main>
+  <nav class="tabs gut" id="tabs">
+    <button class="tab" data-tab="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9h-6v-6H9v6H3z"/></svg>Home</button>
+    <button class="tab" data-tab="bible"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M12 7v5M9.5 9h5"/></svg>Bible</button>
+    <button class="tab cam" data-create aria-label="Create" aria-expanded="false"><span class="ring"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Create</button>
+    <button class="tab" data-tab="chats"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2A5 5 0 0 1 21.5 19"/></svg>Friends</button>
+    <button class="tab" data-tab="me"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Profile</button>
+  </nav>
+</div>
+
+<script>
+// ---------- art backdrops (no external images allowed) ----------
+const ART = {
+  dawn:  "radial-gradient(circle at 70% 62%,#FFE7A6 0 9%,transparent 10%),linear-gradient(180deg,#F7B58A 0%,#F5D3A1 45%,#7FA7A0 46%,#46736C 100%)",
+  sea:   "radial-gradient(circle at 25% 30%,#FFF6D8 0 6%,transparent 7%),linear-gradient(180deg,#9CC9E6 0%,#D8ECF5 50%,#2F6E8E 51%,#1D4A63 100%)",
+  hills: "radial-gradient(ellipse 80% 30% at 20% 85%,#5E8C5A 60%,transparent 61%),radial-gradient(ellipse 90% 35% at 85% 92%,#3F6B45 60%,transparent 61%),linear-gradient(180deg,#CFE6EE,#F2F1D8)",
+  night: "radial-gradient(circle at 78% 22%,#F6F1D9 0 5%,transparent 6%),radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 40% 15%,#fff,transparent),radial-gradient(1.5px 1.5px at 60% 40%,#fff,transparent),linear-gradient(180deg,#0F1B3A,#2C3F6B 70%,#4A5B7E)",
+  bloom: "radial-gradient(circle at 30% 40%,#F4A9B8 0 14%,transparent 15%),radial-gradient(circle at 65% 55%,#F7C9A0 0 12%,transparent 13%),radial-gradient(circle at 50% 75%,#B9D7A8 0 16%,transparent 17%),linear-gradient(160deg,#FBEFF2,#EAF2E4)",
+  ember: "linear-gradient(160deg,#3A1F4A,#B5476A 55%,#F2A15A)"
+};
+const artCss = k => `background:${ART[k]||ART.dawn}`;
+
+// ---------- sample data ----------
+const COLORS = {me:"#2E5E50",maya:"#B5476A",jon:"#3E6FA8",grace:"#8A6A2E",eli:"#5B4E9C",ruth:"#2F8475",sam:"#A0522D",noah:"#4A7A3A",leah:"#7A4A8C",caleb:"#3A6E7A"};
+const PEOPLE = {
+  me:{get name(){ return S.profile.name; }, get short(){ return S.profile.name.split(" ")[0]; }}, maya:{name:"Maya Okafor",short:"Maya"}, jon:{name:"Jonah Reyes",short:"Jonah"},
+  grace:{name:"Grace Lin",short:"Grace"}, eli:{name:"Eli Turner",short:"Eli"}, ruth:{name:"Ruth Adeyemi",short:"Ruth"},
+  sam:{name:"Sam Whitaker",short:"Sam",bio:"Worship Team · guitar"}, noah:{name:"Noah Kim",short:"Noah",bio:"Young Adults"},
+  leah:{name:"Leah Benson",short:"Leah",bio:"Women of the Word"}, caleb:{name:"Caleb Ortiz",short:"Caleb",bio:"Riverside Youth leader"}
+};
+// Full Bibles live in bible/<translation>/<book number>.json (one array of chapters, each an array of verses).
+const TRANSLATIONS = {
+  kjv:{abbr:"KJV", name:"King James Version", note:"1769 text. Classic English."},
+  bsb:{abbr:"BSB", name:"Berean Standard Bible", note:"Modern English, easy to read."},
+  asv:{abbr:"ASV", name:"American Standard Version", note:"1901 text. Close to the original languages."}
+};
+const PLAN_REFS = {"Philippians 4":[49,4],"Psalm 23":[18,23],"Matthew 5":[39,5],"Isaiah 40":[22,40],"John 1":[42,1]};
+const VOTD = {text:"But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.",ref:"Isaiah 40:31",art:"sea"};
+const PLAN = {name:"Peace in Anxious Times",days:["Philippians 4","Psalm 23","Matthew 5","Isaiah 40","John 1"]};
+
+const SEED = () => ({
+  profile:{name:"Your name",handle:"you",church:"Riverside Church",photo:null},
+  notifs:[
+    {id:101,type:"message",from:"jon",text:"Hey, can you help run slides on Sunday?",time:Date.now()-40*60e3,read:false},
+    {id:102,type:"like",from:"maya",what:"story",text:"",time:Date.now()-3*3600e3,read:false}
+  ],
+  notifPrefs:{like:true,comment:true,message:true},
+  blocked:{}, reports:[], hiddenPosts:{},
+  tab:"home", read:{tr:"kjv",b:18,c:23}, done:{}, streak:12, readDay:"", planDay:1,
+  highlights:{"Psalm 23:1":{c:"gold",t:"The LORD is my shepherd; I shall not want.",tr:"KJV"},"Philippians 4:13":{c:"sky",t:"I can do all things through Christ which strengtheneth me.",tr:"KJV"}},
+  stories:{
+    maya:[{art:"dawn",cap:"6am on the mountain",verse:{text:"This is the day which the LORD hath made; we will rejoice and be glad in it.",ref:"Psalm 118:24"}},{art:"bloom",cap:"Worship night was beautiful"}],
+    eli:[{art:"night",cap:"Can't sleep. Reading Psalms.",verse:{text:"He restoreth my soul.",ref:"Psalm 23:3"}}],
+    grace:[{art:"bloom",cap:"Garden is blooming!"}],
+    jon:[{art:"sea",cap:"Baptism Sunday at the lake"},{art:"hills",cap:"Youth retreat day 2"}],
+    me:[]
+  },
+  seen:{},
+  posts:[
+    {id:1,by:"jon",group:"Riverside Youth",time:"2h",art:"sea",verse:{text:"Therefore if any man be in Christ, he is a new creature: old things are passed away; behold, all things are become new.",ref:"2 Corinthians 5:17"},cap:"7 baptisms at the lake this morning. What a day!",likes:84,liked:false,prays:12,prayed:false,cmts:[{by:"maya",t:"I cried the whole time. So good."},{by:"ruth",t:"Welcome to the family, everyone!"}],open:false},
+    {id:2,by:"grace",time:"5h",art:"bloom",cap:"Prayer request: my mom has surgery Thursday. Would love your prayers for the doctors and for peace.",likes:31,liked:false,prays:58,prayed:true,cmts:[{by:"eli",t:"Praying for her, Grace."}],open:false},
+    {id:4,by:"ruth",group:"Women of the Word",time:"3h",art:null,verse:{text:"Whither thou goest, I will go; and where thou lodgest, I will lodge: thy people shall be my people, and thy God my God.",ref:"Ruth 1:16"},cap:"Our memory verse for this week. Who's bringing snacks Tuesday?",likes:17,liked:false,prays:0,prayed:false,cmts:[{by:"grace",t:"I've got muffins!"}],open:false},
+    {id:3,by:"eli",group:"Men's Bible Study",time:"1d",art:"hills",verse:{text:"Iron sharpeneth iron; so a man sharpeneth the countenance of his friend.",ref:"Proverbs 27:17"},cap:"Hike + study this Saturday. Trailhead at 8.",likes:22,liked:false,prays:0,prayed:false,cmts:[],open:false}
+  ],
+  snaps:[{from:"maya",art:"ember",cap:"Guess where I am 👀",opened:false},{from:"ruth",art:"dawn",cap:"Good morning!",opened:false}],
+  sent:{eli:"2h", jon:"Yesterday"},
+  streaks:{maya:42,jon:17,grace:5,eli:88,ruth:3},
+  groups:[
+    {id:"g1",name:"Riverside Youth",members:214,art:"sea",joined:true,meets:"Wednesdays 7 PM",about:"High schoolers from Riverside Church. Worship, small groups, and way too much pizza in the student center.",people:["jon","maya","ruth","grace"],
+      events:[{m:"Oct",d:29,t:"Fall Bonfire & Worship",time:"Wed 7:00 PM",where:"Miller Farm",n:46,going:true},{m:"Nov",d:8,t:"Serve Day at the food bank",time:"Sat 9:00 AM",where:"Hope Pantry",n:22,going:false}]},
+    {id:"g2",name:"Men's Bible Study",members:38,art:"hills",joined:true,meets:"Saturdays 8 AM",about:"Working through the book of James, one chapter a week. Coffee provided.",people:["eli","jon"],
+      events:[{m:"Oct",d:26,t:"Trail hike + study",time:"Sat 8:00 AM",where:"Eagle Ridge trailhead",n:12,going:false}]},
+    {id:"g3",name:"Women of the Word",members:121,art:"bloom",joined:true,meets:"Tuesdays 6:30 PM",about:"Reading the book of Ruth together this fall. Bring a friend and a journal.",people:["ruth","grace","maya"],
+      events:[{m:"Nov",d:4,t:"Ruth chapter 2 discussion",time:"Tue 6:30 PM",where:"Fellowship Hall",n:31,going:false}]},
+    {id:"g4",name:"Worship Team",members:27,art:"night",joined:false,meets:"Thursdays 7 PM",about:"Musicians, singers, and tech crew who lead Sunday services. Rehearsal every Thursday.",people:["maya","eli"],
+      events:[{m:"Oct",d:30,t:"Rehearsal for All Saints Sunday",time:"Thu 7:00 PM",where:"Main sanctuary",n:18,going:false}]},
+    {id:"g5",name:"Young Adults",members:89,art:"dawn",joined:false,meets:"Sundays 6 PM",about:"Ages 18 to 30. Dinner, a short teaching, and good conversation after.",people:["grace","jon"],
+      events:[{m:"Nov",d:2,t:"Potluck & game night",time:"Sun 6:00 PM",where:"The Reyes' house",n:24,going:false}]}
+  ],
+  dms:{
+    maya:[{f:"maya",t:"Are you coming to the bonfire Wednesday?"},{f:"me",t:"Yes! Want a ride?"},{f:"maya",t:"Please 🙏 I'll be ready at 6:30"}],
+    eli:[{f:"me",t:"See you at the trailhead Saturday"},{f:"eli",t:"I'll bring the coffee"}],
+    jon:[{f:"jon",t:"Hey, can you help run slides on Sunday?"}],
+    grace:[{f:"me",kind:"verse",t:"Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.",ref:"Philippians 4:6"},{f:"grace",t:"Thank you. I needed that today."}],
+    ruth:[]
+  },
+  unread:{jon:1},
+  groupId:null, gtab:"discussion",
+  prayers:[
+    {by:"ruth",t:"New job starts Monday. Praying for wisdom and courage.",n:19,me:false},
+    {by:"grace",t:"Mom's surgery Thursday.",n:58,me:true},
+    {by:"jon",t:"Our mission trip team leaves for Guatemala next week.",n:33,me:false}
+  ],
+  nextId:10
+});
+
+// Live mode when config.js names a Supabase project; otherwise a demo with sample people.
+const LIVE = !!(window.SELAH_CONFIG && SELAH_CONFIG.supabaseUrl && SELAH_CONFIG.supabaseAnonKey && window.supabase && window.startLive);
+let S;
+try { S = JSON.parse(localStorage.getItem("selah-v2")) || SEED(); } catch(e){ S = SEED(); }
+if(!S.profile) S.profile = SEED().profile;
+if(!S.notifs) S.notifs = SEED().notifs;
+if(!S.notifPrefs) S.notifPrefs = {like:true,comment:true,message:true};
+if(!S.blocked){ S.blocked={}; S.reports=[]; S.hiddenPosts={}; }
+if(!S.read){ S.read={tr:"kjv",b:18,c:23}; S.done={}; S.readDay=""; }
+for(const k in S.highlights){ if(typeof S.highlights[k]==="string") S.highlights[k]={c:S.highlights[k],t:(SEED().highlights[k]||{}).t||"",tr:"KJV"}; }
+if(LIVE) S = liveBlankState();
+const save = () => { if(LIVE) return liveSave(); try { localStorage.setItem("selah-v2", JSON.stringify(S)); } catch(e){} };
+// Server calls. In demo mode they do nothing; live.js replaces them.
+const api = { react(){}, comment(){}, createPost(){}, addPrayer(){}, markPrayed(){}, deletePost(){}, deleteComment(){}, deletePrayer(){},
+  send(){}, message(){}, markRead(){}, addStory(){}, glassViewed(){}, joinGroup(){}, rsvp(){}, createGroup(){}, addEvent(){},
+  requestFriend(){}, respondFriend(){}, block(){}, unblock(){}, report(){}, readNotifs(){}, clearNotifs(){}, viewStory(){},
+  saveProfile(){ return Promise.resolve(true); }, openGlass:null, searchPeople:null };
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const av = (id,cls="") => {
+  const ph = id==="me" ? S.profile.photo : (PEOPLE[id]||{}).photo;
+  return `<div class="av ${cls}" style="background:${ph?`center/cover no-repeat url(&quot;${esc(ph)}&quot;)`:COLORS[id]||colorFor(id)}">${ph?'':esc(((PEOPLE[id]||{name:"?"}).name||"?")[0].toUpperCase())}</div>`;
+};
+const AV_COLORS=["#B5476A","#3E6FA8","#8A6A2E","#5B4E9C","#2F8475","#A0522D","#4A7A3A","#7A4A8C","#3A6E7A","#9C4E3A"];
+function colorFor(id){ let h=0; for(const ch of String(id)) h=(h*31+ch.charCodeAt(0))|0; return AV_COLORS[Math.abs(h)%AV_COLORS.length]; }
+const ICON = {
+  heart:'<svg width="22" height="22" viewBox="0 0 24 24" fill="FILL" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-9-9a4.8 4.8 0 0 1 9-3 4.8 4.8 0 0 1 9 3c-2 4.6-9 9-9 9z"/></svg>',
+  pray:'<svg width="22" height="22" viewBox="0 0 24 24" fill="FILL" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3c-1 2-1.5 5-1.5 8v7l-4 3M12 3c1 2 1.5 5 1.5 8v7l4 3M10.5 11L6 14v3M13.5 11l4.5 3v3"/></svg>',
+  cmt:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+  send:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></svg>',
+  x:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  bell:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2.2 2.2 0 0 0 4 0"/></svg>',
+  more:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  flag:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></svg>',
+  block:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  trash:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  hide:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 6.1A10 10 0 0 1 12 6c5 0 8.5 4.5 9.5 6a17 17 0 0 1-3 3.6M6.4 7.6A16 16 0 0 0 2.5 12c1 1.5 4.5 6 9.5 6a9.6 9.6 0 0 0 4-.9M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  glass:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 8.5a3 3 0 0 1 2.5-1.5"/></svg>',
+  book:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11M12 7v5M9.5 9h5"/></svg>'
+};
+const ic = (k,filled) => ICON[k].replace("FILL", filled ? "currentColor" : "none");
+const isBlocked = id => !!(S.blocked && S.blocked[id]);
+const visibleCmts = p => p.cmts.filter(c=>!isBlocked(c.by) && !c.hidden);
+const visiblePosts = list => list.filter(p=>!isBlocked(p.by) && !S.hiddenPosts[p.id]);
+const hasNewMessages = () => S.snaps.some(s=>!s.opened && !isBlocked(s.from)) || Object.entries(S.unread).some(([id,n])=>n>0 && !isBlocked(id));
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; $("#app").appendChild(t); setTimeout(()=>t.remove(),2200); }
+
+// ---------- tabs ----------
+function go(tab){ S.tab=tab; sel.clear(); save(); render(); $("#view").scrollTop=0; }
+$("#tabs").addEventListener("click", e=>{ const b=e.target.closest(".tab"); if(!b) return; if(b.hasAttribute("data-create")) toggleCreate(); else { closeCreate(); go(b.dataset.tab); } });
+$("#btnChats").onclick = () => go("chats");
+$("#btnBell").onclick = () => go("notifs");
+$("#btnNew").onclick = () => toggleCreate();
+function closeCreate(){ document.querySelector(".cmenu-bg")?.remove(); document.querySelector(".cmenu")?.remove(); document.querySelector(".tab.cam").setAttribute("aria-expanded","false"); }
+function toggleCreate(){
+  if(document.querySelector(".cmenu")) return closeCreate();
+  const bg=document.createElement("div"); bg.className="cmenu-bg"; bg.onclick=closeCreate;
+  const m=document.createElement("div"); m.className="cmenu"; m.setAttribute("role","menu");
+  m.innerHTML=`<button role="menuitem" data-c="post"><span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 16l5-5 4 4 3-3 6 6"/></svg></span><span><b>Post</b><small>Share to your feed</small></span></button>
+    <button role="menuitem" data-c="story"><span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 2.5"><circle cx="12" cy="12" r="9"/></svg></span><span><b>Story</b><small>Friends can see it for 24 hours</small></span></button>
+    <button role="menuitem" data-c="glass"><span class="ci"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 8.5a3 3 0 0 1 2.5-1.5"/></svg></span><span><b>Looking Glass</b><small>A photo that disappears after it's opened</small></span></button>`;
+  m.onclick=e=>{ const b=e.target.closest("[data-c]"); if(!b) return; closeCreate(); const c=b.dataset.c; if(c==="post") openComposer(); else startGlass(c); };
+  $("#app").append(bg,m); document.querySelector(".tab.cam").setAttribute("aria-expanded","true"); m.querySelector("button").focus();
+}
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeCreate(); });
+
+function render(){
+  if(LIVE && !liveReady){ $("#view").innerHTML=`<p class="loading" style="text-align:center;padding-block:48px">Loading your feed…</p>`; return; }
+  const cur = S.tab==="group" ? "chats" : S.tab;
+  document.querySelectorAll(".tab").forEach(b=>{ if(b.dataset.tab===cur) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+  $("#msgDot").hidden = !hasNewMessages();
+  ({home:renderHome,bible:renderBible,snap:renderSnap,chats:renderChats,me:renderMe,group:renderGroup,notifs:renderNotifs})[S.tab]();
+  renderSelbar();
+  updateBell();
+}
+
+// ---------- HOME (Instagram + Facebook) ----------
+// a person's stories count as seen until they add a newer one
+const storySeen = id => S.seen[id]===true || (S.seen[id] && S.seen[id] >= Math.max(...S.stories[id].map(s=>s.id||0)));
+function storyRow(){
+  const ids = Object.keys(S.stories).filter(id=>id!=="me" && S.stories[id].length && !isBlocked(id));
+  const mine = S.stories.me.length;
+  return `<div class="stories">
+    <button class="st ${mine?'':'seen'}" data-story="${mine?'me':''}" data-addstory="${mine?'':'1'}"><div class="rg">${av('me', mine?'':'plus')}</div><span>Your story</span></button>
+    ${ids.map(id=>`<button class="st ${storySeen(id)?'seen':''}" data-story="${id}"><div class="rg">${av(id)}</div><span>${PEOPLE[id].short}</span></button>`).join("")}
+  </div>`;
+}
+function postHtml(p){
+  const media = p.img ? `<img src="${p.img}" alt="">` : "";
+  const vv = p.verse ? `<div class="overlay-verse">${esc(p.verse.text)}<small>${esc(p.verse.ref)}</small></div>` : "";
+  const showArt = p.img || p.art;
+  return `<article class="card post" data-id="${p.id}">
+    <div class="hd">${av(p.by,'sm')}<div class="who"><b>${PEOPLE[p.by].name}</b><small>${p.group?`<button class="tag" data-group="${esc(p.group)}">${esc(p.group)}</button> · `:''}${p.time}</small></div><button class="ibtn" data-more aria-label="More options for this post">${ICON.more}</button></div>
+    ${showArt?`<div class="art" style="${p.img?'':artCss(p.art)}">${media}${vv}</div>`:(vv?`<div style="padding:0 14px"><div class="overlay-verse" style="margin:0;background:var(--accent)">${esc(p.verse.text)}<small>${esc(p.verse.ref)}</small></div></div>`:'')}
+    <div class="bar">
+      <button class="act ${p.liked?'on':''}" data-like aria-pressed="${p.liked}">${ic('heart',p.liked)}${p.likes}</button>
+      <button class="act pr ${p.prayed?'on':''}" data-pray aria-pressed="${p.prayed}" title="Praying">${ic('pray',p.prayed)}${p.prays}</button>
+      <button class="act" data-cmt>${ic('cmt')}${visibleCmts(p).length}</button>
+      <button class="act" data-share style="margin-left:auto" aria-label="Send to a friend">${ic('send')}</button>
+    </div>
+    <div class="cap"><b>${PEOPLE[p.by].short}</b>${esc(p.cap)}</div>
+    ${p.open?`<div class="cmts">${p.cmts.map((c,i)=>isBlocked(c.by)||c.hidden?"":`<div class="c"><span><b>${PEOPLE[c.by].short}</b>${esc(c.t)}</span><button class="cmore" data-cm="${i}" aria-label="More options for ${PEOPLE[c.by].short}'s comment">${ICON.more}</button></div>`).join("")}
+      <form class="cform" data-cform><input id="c-${p.id}" placeholder="Add a comment…" autocomplete="off"><button class="pill solid">Post</button></form></div>`
+      : (visibleCmts(p).length?`<div class="cmts"><button style="text-align:left;color:var(--muted)" data-cmt>View ${visibleCmts(p).length} comment${visibleCmts(p).length>1?'s':''}</button></div>`:'')}
+  </article>`;
+}
+function renderHome(){
+  const v = $("#view");
+  v.innerHTML = `${storyRow()}
+    <section class="card votd">
+      <div class="eyebrow">Verse of the day</div>
+      <blockquote>${esc(VOTD.text)}</blockquote>
+      <div class="row" style="justify-content:space-between"><span class="ref">${VOTD.ref}</span>
+        <div class="row"><button class="pill" id="votdStory">Add to story</button><button class="pill solid" id="votdRead">Read chapter</button></div></div>
+    </section>
+    <div class="card composer">${av('me','sm')}<button class="fake" id="fakeComposer">Share a moment, verse, or prayer…</button></div>
+    ${visiblePosts(S.posts).map(postHtml).join("")}
+    ${LIVE && !visiblePosts(S.posts).length ? `<div class="card empty">Your feed is quiet. Add friends or join a group from the Friends tab, and their posts will show up here.</div>` : ""}
+    ${LIVE ? "" : `<p class="demo">Prototype · sample people and posts</p>`}`;
+  v.querySelectorAll("[data-story]").forEach(b=>b.onclick=()=> b.dataset.addstory ? startGlass("story") : openStory(b.dataset.story));
+  $("#votdStory").onclick = ()=>{ const sl={art:VOTD.art,verse:{text:VOTD.text,ref:VOTD.ref}}; S.stories.me.push(sl); api.addStory(sl); save(); toast("Added to your story"); render(); };
+  $("#votdRead").onclick = ()=>{ S.read.b=22; S.read.c=40; jumpVerse=31; go("bible"); };
+  $("#fakeComposer").onclick = ()=>openComposer();
+  bindPosts(v);
+}
+function bindPosts(root){
+  root.querySelectorAll(".post").forEach(el=>{
+    const tg = el.querySelector("[data-group]");
+    if(tg) tg.onclick=()=>{ const g=S.groups.find(x=>x.name===tg.dataset.group); if(g) openGroup(g.id); };
+    const p = S.posts.find(x=>x.id==el.dataset.id);
+    el.querySelector("[data-like]").onclick=()=>{ p.liked=!p.liked; p.likes+=p.liked?1:-1; api.react(p,"like",p.liked); save(); render(); };
+    el.querySelector("[data-pray]").onclick=()=>{ p.prayed=!p.prayed; p.prays+=p.prayed?1:-1; api.react(p,"pray",p.prayed); save(); render(); if(p.prayed) toast(`${PEOPLE[p.by].short} will see you're praying`); };
+    el.querySelectorAll("[data-cmt]").forEach(b=>b.onclick=()=>{ p.open=!p.open; save(); render(); });
+    el.querySelector("[data-share]").onclick=()=>openSendSheet({art:p.art,img:p.img,cap:p.cap,verse:p.verse});
+    el.querySelector("[data-more]").onclick=()=>postMenu(p);
+    el.querySelectorAll("[data-cm]").forEach(b=>b.onclick=()=>commentMenu(p,+b.dataset.cm));
+    const f = el.querySelector("[data-cform]");
+    if(f) f.onsubmit=e=>{ e.preventDefault(); const i=f.querySelector("input"); const t=i.value.trim(); if(!t) return; const c={by:"me",t}; p.cmts.push(c); api.comment(p,c); save(); render();
+      if(!LIVE && p.by!=="me") setTimeout(()=>notify({type:"like",from:p.by,postId:p.id,what:"comment",text:t}),4000); };
+  });
+}
+
+// ---------- composer sheet ----------
+function sheet(html){
+  const o=document.createElement("div"); o.className="ov sheetbg"; o.innerHTML=`<div class="sheet gut">${html}</div>`;
+  o.addEventListener("click",e=>{ if(e.target===o) o.remove(); });
+  $("#app").appendChild(o); return o;
+}
+function openComposer(prefill={}){
+  let img=null, art=prefill.art||null;
+  const o = sheet(`<div class="row" style="justify-content:space-between"><h3>${prefill.group?"Post to "+esc(prefill.group):"New post"}</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <textarea class="field" id="pText" placeholder="What's on your heart?">${esc(prefill.cap||"")}</textarea>
+    ${prefill.verse?`<div class="overlay-verse" style="margin:0;background:var(--accent)">${esc(prefill.verse.text)}<small>${esc(prefill.verse.ref)}</small></div>`:''}
+    <div class="eyebrow">Background</div>
+    <div class="swatches" id="pSw"><button class="swatch" data-k="" aria-pressed="${!art}" style="background:var(--bg)" aria-label="None"></button>${Object.keys(ART).map(k=>`<button class="swatch" data-k="${k}" aria-pressed="${art===k}" style="${artCss(k)}" aria-label="${k}"></button>`).join("")}</div>
+    <label class="pill" style="align-self:flex-start;cursor:pointer">Upload photo<input type="file" id="pFile" accept="image/*" hidden></label>
+    <div class="row"><label class="toggle"><input type="checkbox" id="pPrayer"> Mark as prayer request</label></div>
+    <button class="pill solid" id="pGo" style="justify-content:center;padding:12px">Share to feed</button>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelector("#pSw").onclick=e=>{ const b=e.target.closest(".swatch"); if(!b) return; art=b.dataset.k||null; img=null; o.querySelectorAll(".swatch").forEach(s=>s.setAttribute("aria-pressed",s===b)); };
+  o.querySelector("#pFile").onchange=e=>{ const f=e.target.files[0]; if(f) scaleImage(f,1600,url=>{ img=url; toast("Photo attached"); }); };
+  o.querySelector("#pGo").onclick=()=>{
+    const cap=o.querySelector("#pText").value.trim();
+    if(!cap && !img && !prefill.verse){ toast("Write something or add a photo first"); return; }
+    const prayer=o.querySelector("#pPrayer").checked;
+    const post={id:S.nextId++,by:"me",group:prefill.group,groupId:prefill.groupId,time:"now",art,img,verse:prefill.verse,cap:(prayer?"Prayer request: ":"")+cap,likes:0,liked:false,prays:0,prayed:false,cmts:[],open:false};
+    S.posts.unshift(post); api.createPost(post);
+    if(prayer){ const pr={by:"me",t:cap,n:0,me:false}; S.prayers.unshift(pr); api.addPrayer(pr); }
+    save(); o.remove(); if(!prefill.group) S.tab="home"; render(); toast("Posted");
+    if(!LIVE) simulateReactions(post.id);
+  };
+}
+function openSendSheet(content, kind="share"){
+  const chosen=new Set();
+  const ids=Object.keys(S.streaks).filter(id=>!isBlocked(id));
+  const o = sheet(`<div class="row" style="justify-content:space-between"><h3>Send to…</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="card list">${ids.map(id=>`<button class="li" data-id="${id}">${av(id,'sm')}<div class="m"><b>${PEOPLE[id].name}</b><small>${S.streaks[id]} day streak</small></div><input type="checkbox" tabindex="-1" aria-hidden="true"></button>`).join("")}</div>
+    <button class="pill solid" id="sGo" style="justify-content:center;padding:12px">Send</button>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelectorAll(".li").forEach(b=>b.onclick=()=>{ const id=b.dataset.id; chosen.has(id)?chosen.delete(id):chosen.add(id); b.querySelector("input").checked=chosen.has(id); });
+  o.querySelector("#sGo").onclick=()=>{
+    if(!chosen.size){ toast("Pick at least one friend"); return; }
+    api.send([...chosen], content, kind);
+    chosen.forEach(id=>{ S.sent[id]="now"; if(!LIVE) S.streaks[id]++;
+      (S.dms[id]=S.dms[id]||[]).push(kind==="glass" ? {f:"me",kind:"glass"} : {f:"me",kind:"share",t:content.cap||(content.verse&&content.verse.ref)||"",art:content.art}); });
+    save(); o.remove(); toast(`Sent to ${[...chosen].map(i=>PEOPLE[i].short).join(", ")}`); render();
+  };
+}
+
+// ---------- STORY / SNAP viewer (Snapchat) ----------
+let storyTimer=null;
+function slideHtml(sl){
+  return `${sl.img?`<img src="${sl.img}" alt="">`:''}
+    ${sl.cap?`<div class="cap" style="position:relative;width:100%;text-align:center;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:17px;padding:8px 12px">${esc(sl.cap)}</div>`:''}
+    ${sl.verse?`<div class="overlay-verse" style="max-width:85%;font-size:18px">${esc(sl.verse.text)}<small>${esc(sl.verse.ref)}</small></div>`:''}`;
+}
+function openStory(id){
+  const slides=S.stories[id]; if(!slides||!slides.length) return;
+  let i=0;
+  const o=document.createElement("div"); o.className="ov story"; o.dataset.who=id;
+  o.innerHTML=`<div class="bars">${slides.map(()=>'<span><i></i></span>').join("")}</div>
+    <div class="sh">${av(id,'xs')}<b>${PEOPLE[id].name}</b>${id==='me'?'':`<button class="xbtn" data-more aria-label="Report or block">${ICON.more}</button>`}<button class="xbtn" data-close aria-label="Close">${ICON.x}</button></div>
+    <div class="stage"></div>
+    <form class="reply">${id==='me'?`<div style="flex:1;opacity:.75;padding:9px 0">${slides.length} in your story${LIVE?"":" · seen by Maya, Eli"}</div>`:`<input id="storyReply" placeholder="Reply to ${PEOPLE[id].short}…" autocomplete="off"><button class="pill solid">Send</button>`}</form>`;
+  $("#app").appendChild(o);
+  const stage=o.querySelector(".stage"), bars=o.querySelectorAll(".bars i");
+  const close=()=>{ clearInterval(storyTimer); o.remove(); S.seen[id]=LIVE?Math.max(...slides.map(s=>s.id||0)):true; save(); render(); };
+  api.viewStory(id, slides);
+  let t0, paused=false, elapsed=0;
+  function show(){
+    if(i>=slides.length) return close();
+    if(i<0) i=0;
+    bars.forEach((b,j)=>b.style.width = j<i?"100%":"0");
+    stage.style.cssText = slides[i].img ? "" : artCss(slides[i].art);
+    stage.innerHTML = slideHtml(slides[i]) + `<div class="nav"><button aria-label="Previous"></button><button aria-label="Next"></button></div>`;
+    const [pv,nx]=stage.querySelectorAll(".nav button");
+    pv.onclick=()=>{ i--; elapsed=0; show(); }; nx.onclick=()=>{ i++; elapsed=0; show(); };
+    elapsed=0;
+  }
+  clearInterval(storyTimer);
+  storyTimer=setInterval(()=>{ if(paused) return; elapsed+=50; if(bars[i]) bars[i].style.width=Math.min(100,elapsed/50)+"%"; if(elapsed>=5000){ i++; show(); } },50);
+  o.querySelector("[data-close]").onclick=close;
+  const sm=o.querySelector("[data-more]");
+  if(sm) sm.onclick=()=>{ close(); personMenu(id,{kind:"story",label:"story",ref:(slides[i]||{}).cap||""}); };
+  const r=o.querySelector("#storyReply");
+  if(r){ r.onfocus=()=>paused=true; r.onblur=()=>paused=false; }
+  o.querySelector(".reply").onsubmit=e=>{ e.preventDefault(); if(r&&r.value.trim()){ S.sent[id]="now"; const m={f:"me",t:"Replied to your story: "+r.value.trim()}; (S.dms[id]=S.dms[id]||[]).push(m); api.message(id,m); save(); toast(`Reply sent to ${PEOPLE[id].short}`); r.value=""; r.blur(); } };
+  show();
+}
+async function openSnap(idx, onClose){
+  const sn=S.snaps[idx]; if(sn.opened) { toast("A Looking Glass disappears after it's opened"); return; }
+  if(api.openGlass){
+    const got=await api.openGlass(sn);
+    if(!got){ sn.opened=true; render(); toast("This Looking Glass was already opened"); if(onClose) onClose(); return; }
+    Object.assign(sn,got);
+  }
+  const o=document.createElement("div"); o.className="ov story";
+  o.innerHTML=`<div class="sh" style="padding-top:12px">${av(sn.from,'xs')}<b>${PEOPLE[sn.from].name}</b><button class="xbtn" data-more aria-label="Report or block">${ICON.more}</button><button class="xbtn" data-close aria-label="Close">${ICON.x}</button></div>
+    <div class="stage" style="${sn.img?"":artCss(sn.art)}"><div class="timer">6</div>${slideHtml(sn)}</div><div style="height:16px"></div>`;
+  $("#app").appendChild(o);
+  let n=6; const tm=o.querySelector(".timer");
+  const close=()=>{ clearInterval(iv); o.remove(); sn.opened=true; api.glassViewed(sn); delete sn.img; delete sn.cap; delete sn.verse; save(); render(); if(onClose) onClose(); };
+  const iv=setInterval(()=>{ n--; tm.textContent=n; if(n<=0) close(); },1000);
+  o.querySelector("[data-close]").onclick=close;
+  o.querySelector("[data-more]").onclick=()=>{ close(); personMenu(sn.from,{kind:"glass",label:"Looking Glass",ref:sn.cap||""}); };
+}
+
+// ---------- SNAP camera ----------
+const draft={art:"ember",img:null,cap:"",verse:false,mode:"glass"};
+function renderSnap(){
+  const v=$("#view");
+  const isStory=draft.mode==="story";
+  v.innerHTML=`<div class="snapwrap">
+    <div class="sec-h"><h3>${isStory?"New story":"Looking Glass"}</h3><small>${isStory?"Visible to friends for 24 hours":"Disappears after it's opened"}</small></div>
+    <div class="canvas" id="cv" style="${draft.img?'':artCss(draft.art)}">
+      ${draft.img?`<img src="${draft.img}" alt="Your photo">`:''}
+      ${draft.cap?`<div class="cap">${esc(draft.cap)}</div>`:''}
+      ${draft.verse?`<div class="stick">${esc(VOTD.text)}<small>${VOTD.ref}</small></div>`:''}
+    </div>
+    <div class="row"><button class="pill" id="sCam">Camera</button><button class="pill" id="sLib">Photos</button>${draft.img?'<button class="pill" id="sClear">Remove photo</button>':''}</div>
+    <div class="swatches" id="sSw">${Object.keys(ART).map(k=>`<button class="swatch" data-k="${k}" aria-pressed="${!draft.img&&draft.art===k}" style="${artCss(k)}" aria-label="${k} backdrop"></button>`).join("")}</div>
+    <input class="field" id="sCap" placeholder="Add a caption" value="${esc(draft.cap)}" autocomplete="off">
+    <label class="toggle"><input type="checkbox" id="sVerse" ${draft.verse?'checked':''}> Add verse sticker (${VOTD.ref})</label>
+    <div class="row">${isStory
+      ? `<button class="pill solid" id="sStory" style="flex:1;justify-content:center;padding:12px">Share to my story</button>`
+      : `<button class="pill solid" id="sSend" style="flex:1;justify-content:center;padding:12px">Send to friends</button>`}</div>
+  </div>`;
+  $("#sCam").onclick=()=>pickImage(true, url=>{ draft.img=url; renderSnap(); });
+  $("#sLib").onclick=()=>pickImage(false, url=>{ draft.img=url; renderSnap(); });
+  const sc=$("#sClear"); if(sc) sc.onclick=()=>{ draft.img=null; renderSnap(); };
+  $("#sSw").onclick=e=>{ const b=e.target.closest(".swatch"); if(!b) return; draft.art=b.dataset.k; draft.img=null; renderSnap(); };
+  $("#sCap").oninput=e=>{ draft.cap=e.target.value; const cv=$("#cv"); let c=cv.querySelector(".cap"); if(!c){ c=document.createElement("div"); c.className="cap"; cv.insertBefore(c, cv.querySelector(".stick")); } c.textContent=draft.cap; c.hidden=!draft.cap; };
+  $("#sVerse").onchange=e=>{ draft.verse=e.target.checked; renderSnap(); };
+  const content=()=>({art:draft.art,img:draft.img,cap:draft.cap,verse:draft.verse?{text:VOTD.text,ref:VOTD.ref}:null});
+  if(isStory) $("#sStory").onclick=()=>{ const sl=content(); S.stories.me.push(sl); api.addStory(sl); save(); toast("Added to your story · disappears in 24h"); go("home"); };
+  else $("#sSend").onclick=()=>openSendSheet(content(),"glass");
+}
+
+// camera or photo library: on phones, capture opens the camera app directly
+function pickImage(useCamera, cb){
+  const i=document.createElement("input"); i.type="file"; i.accept="image/*";
+  if(useCamera) i.setAttribute("capture","environment");
+  i.onchange=()=>{ const f=i.files[0]; if(f) scaleImage(f,1080,cb); };
+  i.click();
+}
+function scaleImage(file, max, cb){
+  const r=new FileReader();
+  r.onload=()=>{ const im=new Image(); im.onload=()=>{
+    const k=Math.min(1, max/Math.max(im.width,im.height)), c=document.createElement("canvas");
+    c.width=Math.round(im.width*k); c.height=Math.round(im.height*k);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    cb(c.toDataURL("image/jpeg",0.85));
+  }; im.onerror=()=>toast("That file couldn't be read as a picture"); im.src=r.result; };
+  r.readAsDataURL(file);
+}
+function startGlass(mode="glass"){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>${mode==="story"?"New story":"New Looking Glass"}</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="card list">
+      <button class="li" data-pick="camera"><span class="pickicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><div class="m"><b>Camera</b><small>Take a photo now</small></div></button>
+      <button class="li" data-pick="photo"><span class="pickicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.8"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg></span><div class="m"><b>Photo</b><small>Choose one from your library</small></div></button>
+    </div>
+    <button class="pill" data-pick="bg" style="align-self:center">Or write on a color background</button>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  const open=img=>{ draft.img=img; draft.mode=mode; go("snap"); };
+  o.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.pick; o.remove();
+    if(k==="bg") open(null); else pickImage(k==="camera", open);
+  });
+}
+
+// ---------- BIBLE ----------
+const sel=new Set();
+let BOOKS=null, jumpVerse=0;
+const bookData={}, bookLoading={};
+const today=()=>new Date().toISOString().slice(0,10);
+const readToday=()=>S.readDay===today();
+const refName=(b,c)=>`${BOOKS[b].n==="Psalms"?"Psalm":BOOKS[b].n} ${c}`;
+function loadBooks(){
+  if(BOOKS) return Promise.resolve(BOOKS);
+  return fetch("bible/books.json").then(r=>{ if(!r.ok) throw 0; return r.json(); }).then(d=>BOOKS=d);
+}
+function loadBook(tr,b){
+  const k=tr+"/"+(b+1);
+  if(bookData[k]) return Promise.resolve(bookData[k]);
+  if(!bookLoading[k]) bookLoading[k]=fetch(`bible/${k}.json`).then(r=>{ if(!r.ok) throw 0; return r.json(); })
+    .then(d=>bookData[k]=d).finally(()=>delete bookLoading[k]);
+  return bookLoading[k];
+}
+function chapterVerses(){ const R=S.read, d=bookData[R.tr+"/"+(R.b+1)]; return d ? d[R.c-1] : null; }
+function goChapter(b,c){ S.read.b=b; S.read.c=c; sel.clear(); save(); render(); $("#view").scrollTop=0; }
+function stepChapter(dir){
+  const R=S.read;
+  if(dir>0){ if(R.c<BOOKS[R.b].c) goChapter(R.b,R.c+1); else if(R.b<65) goChapter(R.b+1,1); }
+  else { if(R.c>1) goChapter(R.b,R.c-1); else if(R.b>0) goChapter(R.b-1,BOOKS[R.b-1].c); }
+}
+function renderBible(){
+  const R=S.read, v=$("#view");
+  const pct=Math.round((S.planDay-1)/PLAN.days.length*100);
+  const planRef=PLAN.days[S.planDay-1];
+  const verses = BOOKS && chapterVerses();
+  const title = BOOKS ? refName(R.b,R.c) : "Bible";
+  const key = R.b+":"+R.c, done = !!S.done[key];
+  v.innerHTML=`<section class="card streak">
+      <div class="flame" aria-label="${S.streak} day streak">${S.streak}</div>
+      <div class="t"><b>${readToday()?"You read today. Streak safe!":"Read today to keep your streak"}</b>
+        <small style="color:var(--muted);display:block">Plan: ${PLAN.name} · ${planRef?`Day ${S.planDay} of ${PLAN.days.length}`:"Complete!"}</small>
+        <div class="prog"><i style="width:${pct}%"></i></div></div>
+      ${planRef?`<button class="pill" id="planGo">${planRef}</button>`:""}
+    </section>
+    <div class="rbar">
+      <button class="pill pick" id="pickRef" aria-label="Choose book and chapter">${title}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button class="pill pick" id="openSearch" aria-label="Search the Bible" style="margin-left:auto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search</button>
+      <button class="pill pick" id="pickTr" aria-label="Choose translation">${TRANSLATIONS[R.tr].abbr}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+    </div>
+    <article class="card reader">
+      <h2>${title}</h2><div class="tr">${TRANSLATIONS[R.tr].name} · tap a verse to highlight or share</div>
+      <div class="text" id="btext">${verses ? verses.map((t,i)=>{ const n=i+1, h=S.highlights[`${title}:${n}`];
+          return t ? `<span class="v ${h?'hl-'+h.c:''} ${sel.has(n)?'sel':''}" data-n="${n}" id="v${n}" tabindex="0"><sup>${n}</sup>${esc(t)}</span> `
+                   : `<span class="omit" id="v${n}"><sup>${n}</sup>This verse isn't in the earliest manuscripts, so this translation leaves it out.</span> `; }).join("")
+        : `<p class="loading" id="bload">Loading ${title}…</p>`}</div>
+      <div class="chnav">
+        <button class="pill" id="prevCh" ${BOOKS&&R.b===0&&R.c===1?"disabled":""}>‹ Previous</button>
+        <button class="pill ${done?'':'solid'}" id="markRead">${done?"Read ✓":"Mark as read"}</button>
+        <button class="pill" id="nextCh" ${BOOKS&&R.b===65&&R.c===BOOKS[65].c?"disabled":""}>Next ›</button>
+      </div>
+    </article>
+    <p class="demo">Bible text: KJV, BSB and ASV are in the public domain.</p>`;
+  if(!verses){
+    // first visit to this book: fetch it, then draw again
+    loadBooks().then(()=>loadBook(R.tr,R.b)).then(()=>{ if(S.tab==="bible") render(); })
+      .catch(()=>{ const l=$("#bload"); if(l) l.innerHTML=`Couldn't load ${title}. Check your connection, then <button class="pill" id="bRetry">Try again</button>`; const r=$("#bRetry"); if(r) r.onclick=render; });
+    return;
+  }
+  v.querySelectorAll(".v").forEach(s=>{ const tog=()=>{ const n=+s.dataset.n; sel.has(n)?sel.delete(n):sel.add(n); render(); }; s.onclick=tog; s.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); tog(); } }; });
+  $("#pickRef").onclick=openBookPicker;
+  $("#pickTr").onclick=openTranslationPicker;
+  $("#openSearch").onclick=openBibleSearch;
+  $("#prevCh").onclick=()=>stepChapter(-1);
+  $("#nextCh").onclick=()=>stepChapter(1);
+  const pg=$("#planGo"); if(pg) pg.onclick=()=>{ const [b,c]=PLAN_REFS[planRef]; goChapter(b,c); };
+  $("#markRead").onclick=()=>{
+    if(done) return;
+    S.done[key]=true;
+    const firstToday=!readToday(); if(firstToday){ S.readDay=today(); S.streak++; }
+    const pr=PLAN_REFS[planRef]; if(pr && pr[0]===R.b && pr[1]===R.c) S.planDay++;
+    save(); render(); toast(firstToday?`${S.streak} day streak! Keep it going`:`${title} marked as read`);
+  };
+  if(jumpVerse){ const el=$("#v"+jumpVerse); jumpVerse=0; if(el){ el.scrollIntoView({block:"center"}); el.classList.add("flash"); } }
+}
+function openBookPicker(){
+  let part=BOOKS[S.read.b].t;
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Books</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="body"></div>`);
+  const body=o.querySelector(".body");
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  const showBooks=()=>{
+    body.innerHTML=`<div class="seg" role="tablist"><button role="tab" data-part="OT" aria-selected="${part==="OT"}">Old Testament</button><button role="tab" data-part="NT" aria-selected="${part==="NT"}">New Testament</button></div>
+      <div class="bklist">${BOOKS.map((bk,i)=>bk.t===part?`<button class="bk ${i===S.read.b?'cur':''}" data-b="${i}">${bk.n}</button>`:"").join("")}</div>`;
+    body.querySelectorAll("[data-part]").forEach(t=>t.onclick=()=>{ part=t.dataset.part; showBooks(); });
+    body.querySelectorAll("[data-b]").forEach(t=>t.onclick=()=>showChapters(+t.dataset.b));
+    body.querySelector(".cur")?.scrollIntoView({block:"center"});
+  };
+  const showChapters=b=>{
+    if(BOOKS[b].c===1){ o.remove(); goChapter(b,1); return; }
+    body.innerHTML=`<button class="back" data-back>${ICON.back}${BOOKS[b].t==="OT"?"Old":"New"} Testament</button><div class="eyebrow" style="margin:6px 0">${BOOKS[b].n} · choose a chapter</div>
+      <div class="chgrid">${Array.from({length:BOOKS[b].c},(_,i)=>i+1).map(c=>`<button class="${b===S.read.b&&c===S.read.c?'cur':''} ${S.done[b+':'+c]?'done':''}" data-c="${c}" aria-label="Chapter ${c}${S.done[b+':'+c]?', read':''}">${c}</button>`).join("")}</div>`;
+    body.querySelector("[data-back]").onclick=showBooks;
+    body.querySelectorAll("[data-c]").forEach(t=>t.onclick=()=>{ o.remove(); goChapter(b,+t.dataset.c); });
+  };
+  showBooks();
+}
+function openTranslationPicker(){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Translation</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="card list">${Object.entries(TRANSLATIONS).map(([k,t])=>`<button class="li" data-tr="${k}" aria-pressed="${k===S.read.tr}"><span class="pickicon" style="font-weight:700;font-size:13px">${t.abbr}</span><div class="m"><b>${t.name}</b><small>${t.note}</small></div>${k===S.read.tr?'<span class="fire" style="color:var(--accent)">Reading</span>':''}</button>`).join("")}</div>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelectorAll("[data-tr]").forEach(b=>b.onclick=()=>{ S.read.tr=b.dataset.tr; sel.clear(); save(); o.remove(); render(); });
+}
+// ---------- BIBLE SEARCH ----------
+const BOOK_ALIASES={gen:0,ex:1,exo:1,lev:2,num:3,deut:4,dt:4,josh:5,judg:6,jdg:6,ps:18,psa:18,psalm:18,pss:18,prov:19,pr:19,eccl:20,ecc:20,song:21,sos:21,songofsongs:21,isa:22,jer:23,lam:24,ezek:25,eze:25,dan:26,hos:27,obad:30,mic:32,nah:33,hab:34,zeph:35,hag:36,zech:37,mal:38,
+  mt:39,matt:39,mk:40,mrk:40,lk:41,luk:41,jn:42,jhn:42,rom:44,gal:47,eph:48,phil:49,php:49,col:50,phlm:56,phm:56,heb:57,jas:58,jude:64,rev:65,revelations:65,"1jn":61,"2jn":62,"3jn":63};
+// "John 3:16", "jn 3", "1 cor 13:4-7", "psalm 23" -> {b,c,v}
+function parseRef(q){
+  const m=q.trim().toLowerCase().replace(/\./g,"").match(/^((?:[123]|i{1,3})?\s*[a-z][a-z ]*?)\s*(\d+)(?:\s*[:.]\s*(\d+)(?:\s*-\s*\d+)?)?$/);
+  if(!m) return null;
+  let name=m[1].replace(/^(iii|ii|i)\s+/,r=>({i:"1",ii:"2",iii:"3"}[r.trim()])).replace(/\s+/g,"");
+  let b=BOOK_ALIASES[name];
+  if(b===undefined) b=BOOKS.findIndex(bk=>bk.n.toLowerCase().replace(/\s+/g,"").startsWith(name));
+  if(b<0) return null;
+  const c=+m[2], v=m[3]?+m[3]:0;
+  if(c<1||c>BOOKS[b].c) return {b,c,bad:true};
+  return {b,c,v};
+}
+const reEsc=t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+let lastSearch={q:"",part:"all"};
+function openBibleSearch(){
+  closeCreate();
+  const tr=S.read.tr, T=TRANSLATIONS[tr];
+  const o=document.createElement("div"); o.className="ov bsearch";
+  o.innerHTML=`<div class="th gut"><button class="ibtn" data-back aria-label="Back to reading">${ICON.back}</button>
+      <label class="search" style="flex:1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="bq" placeholder="Search ${T.abbr}: words or John 3:16" aria-label="Search the Bible" autocomplete="off" enterkeyhint="search"></label></div>
+    <div class="gut bsfilters"><div class="seg" role="tablist">${[["all","All books"],["OT","Old Testament"],["NT","New Testament"]].map(([k,l])=>`<button role="tab" data-part="${k}" aria-selected="${lastSearch.part===k}">${l}</button>`).join("")}</div></div>
+    <div class="bsres gut" id="bres"></div>`;
+  $("#app").appendChild(o);
+  const input=o.querySelector("#bq"), res=o.querySelector("#bres");
+  const close=()=>{ o.remove(); };
+  o.querySelector("[data-back]").onclick=close;
+  const tips=`<div class="bstip"><b>Search the ${T.name}</b>
+    <p>Type words to find every verse that has all of them, like <button class="linkish" data-try="love one another">love one another</button>.</p>
+    <p>Put a phrase in quotes to match it exactly, like <button class="linkish" data-try="&quot;fear not&quot;">"fear not"</button>.</p>
+    <p>Or type a reference to jump there, like <button class="linkish" data-try="John 3:16">John 3:16</button> or <button class="linkish" data-try="ps 23">ps 23</button>.</p></div>`;
+  let loaded=false, timer=0;
+  const ensureLoaded=()=>{
+    if(loaded) return Promise.resolve();
+    let n=0;
+    return loadBooks().then(()=>Promise.all(BOOKS.map((_,i)=>loadBook(tr,i).then(()=>{ n++; const l=res.querySelector(".loading"); if(l) l.textContent=`Loading the ${T.abbr}… ${n} of 66 books`; }))))
+      .then(()=>{ loaded=true; });
+  };
+  const goTo=(b,c,v)=>{ close(); S.read.b=b; S.read.c=c; jumpVerse=v||0; sel.clear(); save(); S.tab="bible"; render(); if(!v) $("#view").scrollTop=0; };
+  function run(){
+    const q=input.value.trim(); lastSearch.q=input.value;
+    if(!q){ res.innerHTML=tips; bindTips(); return; }
+    if(!loaded){ res.innerHTML=`<p class="loading">Loading the ${T.abbr}…</p>`;
+      ensureLoaded().then(run).catch(()=>{ res.innerHTML=`<div class="card empty">Couldn't load the Bible for searching. Check your connection and try again.</div>`; }); return; }
+    const ref=parseRef(q);
+    const phrase=q.match(/^"(.+)"$/);
+    const terms=(phrase?[phrase[1]]:q.split(/\s+/)).map(t=>t.toLowerCase().replace(/^[^\w']+|[^\w']+$/g,"")).filter(Boolean);
+    const part=lastSearch.part, hits=[];
+    // whole words only, so "love" doesn't match "beloved"
+    const wordRes=terms.map(w=>new RegExp("(?<![\\w'])"+reEsc(w).replace(/\s+/g,"\\s+")+"(?![\\w'])","i"));
+    if(terms.length) BOOKS.forEach((bk,b)=>{
+      if(part!=="all" && bk.t!==part) return;
+      bookData[tr+"/"+(b+1)].forEach((ch,ci)=>ch.forEach((t,vi)=>{ if(t && wordRes.every(re=>re.test(t))) hits.push([b,ci+1,vi+1,t]); }));
+    });
+    const mark=new RegExp("((?<![\\w'])(?:"+terms.map(w=>reEsc(esc(w)).replace(/\s+/g,"\\s+")).join("|")+")(?![\\w']))","gi");
+    const shown=hits.slice(0,200);
+    res.innerHTML=(ref&&ref.bad?`<div class="card empty">${BOOKS[ref.b].n} has ${BOOKS[ref.b].c} chapter${BOOKS[ref.b].c>1?"s":""}.</div>`:"")
+      +(ref&&!ref.bad?`<button class="card refjump" data-b="${ref.b}" data-c="${ref.c}" data-v="${ref.v}"><span class="pickicon">${ICON.book}</span><div class="m"><small>Go to</small><b>${refName(ref.b,ref.c)}${ref.v?":"+ref.v:""}</b></div>${ICON.back.replace('d="M15 5l-7 7 7 7"','d="M9 5l7 7-7 7"')}</button>`:"")
+      +(hits.length?`<div class="sec-h"><h3>${hits.length.toLocaleString()} verse${hits.length>1?"s":""}</h3><small>${hits.length>200?"Showing the first 200":T.abbr}</small></div>
+        <div class="card list">${shown.map(([b,c,v,t])=>`<button class="res" data-b="${b}" data-c="${c}" data-v="${v}"><b>${refName(b,c)}:${v}</b><span>${esc(t).replace(mark,"<mark>$1</mark>")}</span></button>`).join("")}</div>`
+        :(ref?"":`<div class="card empty">No verses in the ${T.abbr} ${part==="all"?"":`${part==="OT"?"Old":"New"} Testament `}have ${terms.length>1&&!phrase?"all of those words":"“"+esc(q.replace(/"/g,""))+"”"}. Try fewer words or a different spelling.</div>`));
+    res.querySelectorAll("[data-b]").forEach(x=>x.onclick=()=>goTo(+x.dataset.b,+x.dataset.c,+x.dataset.v));
+    res.scrollTop=0;
+  }
+  function bindTips(){ res.querySelectorAll("[data-try]").forEach(x=>x.onclick=()=>{ input.value=x.dataset.try; run(); }); }
+  input.oninput=()=>{ clearTimeout(timer); timer=setTimeout(run,200); };
+  input.onkeydown=e=>{ if(e.key==="Enter"){ clearTimeout(timer); run(); input.blur(); } };
+  o.querySelectorAll("[data-part]").forEach(t=>t.onclick=()=>{ lastSearch.part=t.dataset.part; o.querySelectorAll("[data-part]").forEach(x=>x.setAttribute("aria-selected",x===t)); run(); });
+  input.value=lastSearch.q; run();
+  ensureLoaded().catch(()=>{});
+  input.focus();
+}
+function selectionVerse(){
+  const vs=chapterVerses(), title=refName(S.read.b,S.read.c), abbr=TRANSLATIONS[S.read.tr].abbr;
+  const ns=[...sel].sort((a,b)=>a-b);
+  const range = ns.length>1 && ns[ns.length-1]-ns[0]===ns.length-1 ? `${ns[0]}-${ns[ns.length-1]}` : ns.join(",");
+  return {text:ns.map(n=>vs[n-1]).join(" "), ref:`${title}:${range} ${abbr}`, keys:ns.map(n=>[`${title}:${n}`,vs[n-1]]), abbr};
+}
+function renderSelbar(){
+  document.querySelector(".selbar")?.remove();
+  if(S.tab!=="bible"||!sel.size) return;
+  const sv=selectionVerse();
+  const b=document.createElement("div"); b.className="selbar";
+  b.innerHTML=`<span class="lbl">${esc(sv.ref)}</span>
+    <button class="sw" style="background:#F2D27A" data-h="gold" aria-label="Highlight gold"></button>
+    <button class="sw" style="background:#BFE0F2" data-h="sky" aria-label="Highlight blue"></button>
+    <button class="sw" style="background:#F4C2C8" data-h="rose" aria-label="Highlight pink"></button>
+    <button class="sb" data-a="clear">Clear</button>
+    <span style="flex:1"></span>
+    <button class="sb" data-a="post">Post</button><button class="sb" data-a="story">Story</button><button class="sb" data-a="copy">Copy</button>`;
+  $("#app").appendChild(b);
+  b.onclick=e=>{
+    const t=e.target.closest("button"); if(!t) return;
+    if(t.dataset.h){ sv.keys.forEach(([k,txt])=>S.highlights[k]={c:t.dataset.h,t:txt,tr:sv.abbr}); sel.clear(); save(); render(); toast("Highlighted"); }
+    const a=t.dataset.a;
+    if(a==="clear"){ sv.keys.forEach(([k])=>delete S.highlights[k]); sel.clear(); save(); render(); }
+    if(a==="post"){ sel.clear(); render(); openComposer({verse:{text:sv.text,ref:sv.ref},art:"dawn"}); }
+    if(a==="story"){ const sl={art:"night",verse:{text:sv.text,ref:sv.ref}}; S.stories.me.push(sl); api.addStory(sl); sel.clear(); save(); render(); toast("Added to your story"); }
+    if(a==="copy"){ const txt=`"${sv.text}" (${sv.ref})`; try{ navigator.clipboard.writeText(txt).then(()=>toast("Copied"),()=>toast("Copy isn't available here")); }catch(_){ toast("Copy isn't available here"); } sel.clear(); render(); }
+  };
+}
+
+// ---------- FRIENDS (chats, groups, prayer wall) ----------
+function renderChats(){
+  const ids=Object.keys(S.streaks).filter(id=>!isBlocked(id));
+  const row=id=>`<button class="li" data-id="${id}">${av(id,'sm')}<div class="m"><b>${PEOPLE[id].name}</b><small><span class="pv">${lastPreview(id)}</span></small></div>${S.unread[id]>0?`<span class="badge">${S.unread[id]}</span>`:''}<span class="fire" title="Looking Glass streak">${S.streaks[id]} days</span></button>`;
+  const groupRow=g=>`<button class="li" data-g="${g.id}"><div class="gthumb" style="${artCss(g.art)}"></div><div class="m"><b>${esc(g.name)}</b><small>${g.members} members · ${esc(g.meets)}</small></div>${g.joined?'':'<span class="pill">View</span>'}</button>`;
+  const mine=S.groups.filter(g=>g.joined), other=S.groups.filter(g=>!g.joined);
+  const v=$("#view");
+  v.innerHTML=`<label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="q" placeholder="Search friends and groups" aria-label="Search friends and groups" value="${esc(searchQ)}" autocomplete="off"></label>
+    <div id="srch" hidden></div>
+    <div id="cbody">${S.requests&&S.requests.length?`<div class="sec-h"><h3>Friend requests</h3><small>${S.requests.length} waiting</small></div>
+    <div class="card list">${S.requests.map(id=>`<div class="li">${av(id,'sm')}<div class="m"><b>${esc(PEOPLE[id].name)}</b><small>@${esc(PEOPLE[id].username||"")}</small></div><button class="pill" data-decline="${id}">Decline</button><button class="pill solid" data-accept="${id}">Accept</button></div>`).join("")}</div>`:""}
+    <div class="sec-h"><h3>Messages</h3><small>Streaks grow when you both send daily</small></div>
+    <div class="card list">${ids.length?ids.map(row).join(""):`<div class="empty">No friends yet. Search above for people from your church and send them a friend request.</div>`}</div>
+    <div class="sec-h"><h3>Your groups</h3><button class="pill" id="newGroup">New group</button></div>
+    <div class="card list">${mine.length?mine.map(groupRow).join(""):'<div class="empty">Join a group below to see it here.</div>'}</div>
+    ${other.length?`<div class="sec-h"><h3>Discover groups</h3><small>${LIVE?"Open to everyone":"At Riverside Church"}</small></div>
+    <div class="card list">${other.map(groupRow).join("")}</div>`:''}
+    <div class="sec-h"><h3>Prayer wall</h3><button class="pill" id="addPrayer">Add request</button></div>
+    <div class="card">${S.prayers.map((p,i)=>isBlocked(p.by)||p.hidden?"":`<div class="prayer"><div class="row">${av(p.by,'xs')}<b style="flex:1">${PEOPLE[p.by].name}</b><button class="ibtn" data-pm="${i}" aria-label="More options for this prayer request">${ICON.more}</button></div><p>${esc(p.t)}</p>
+      <div class="row"><button class="pill ${p.me?'solid':''}" data-pi="${i}">${p.me?'Prayed':'I prayed'} · ${p.n}</button></div></div>`).join("")}</div></div>`;
+  $("#q").oninput=e=>{ searchQ=e.target.value; runSearch(); };
+  runSearch();
+  v.querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>openThread(b.dataset.id));
+  bindRequestButtons(v);
+  $("#newGroup").onclick=openNewGroup;
+  v.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>openGroup(b.dataset.g));
+  v.querySelectorAll("[data-pm]").forEach(b=>b.onclick=()=>prayerMenu(+b.dataset.pm));
+  v.querySelectorAll("[data-pi]").forEach(b=>b.onclick=()=>{ const p=S.prayers[+b.dataset.pi]; p.me=!p.me; p.n+=p.me?1:-1; api.markPrayed(p,p.me); save(); render(); });
+  $("#addPrayer").onclick=()=>{
+    const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Prayer request</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+      <textarea class="field" id="prT" placeholder="How can your friends pray for you?"></textarea>
+      <button class="pill solid" id="prGo" style="justify-content:center;padding:12px">Share with friends</button>`);
+    o.querySelector("[data-x]").onclick=()=>o.remove();
+    o.querySelector("#prGo").onclick=()=>{ const t=o.querySelector("#prT").value.trim(); if(!t){ toast("Write your request first"); return; } const pr={by:"me",t,n:0,me:false}; S.prayers.unshift(pr); api.addPrayer(pr); save(); o.remove(); render(); toast("Shared on the prayer wall"); };
+  };
+}
+
+// ---------- FRIEND REQUESTS & NEW GROUPS ----------
+function bindRequestButtons(root){
+  root.querySelectorAll("[data-accept]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.accept; S.requests=S.requests.filter(x=>x!==id); S.streaks[id]=0; S.dms[id]=S.dms[id]||[];
+    api.respondFriend(id,true); save(); render(); toast(`You and ${PEOPLE[id].short} are now friends`);
+  });
+  root.querySelectorAll("[data-decline]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.decline; S.requests=S.requests.filter(x=>x!==id); api.respondFriend(id,false); save(); render();
+  });
+}
+function openNewGroup(){
+  let art="sea";
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>New group</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <label class="eyebrow" for="ngName">Name</label><input class="field" id="ngName" maxlength="60" placeholder="Like “Tuesday Night Bible Study”" autocomplete="off">
+    <label class="eyebrow" for="ngMeets">When it meets</label><input class="field" id="ngMeets" maxlength="60" placeholder="Like “Tuesdays 7 PM”" autocomplete="off">
+    <label class="eyebrow" for="ngAbout">About</label><textarea class="field" id="ngAbout" maxlength="500" placeholder="Who it's for and what you do together"></textarea>
+    <div class="eyebrow">Cover</div>
+    <div class="swatches" id="ngSw">${Object.keys(ART).map(k=>`<button class="swatch" data-k="${k}" aria-pressed="${art===k}" style="${artCss(k)}" aria-label="${k}"></button>`).join("")}</div>
+    <p class="demo" style="text-align:left;margin:0">Anyone signed in can find and join your group. You'll be its admin, so you can add events.</p>
+    <button class="pill solid" id="ngGo" style="justify-content:center;padding:12px">Create group</button>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelector("#ngSw").onclick=e=>{ const b=e.target.closest(".swatch"); if(!b) return; art=b.dataset.k; o.querySelectorAll("#ngSw .swatch").forEach(x=>x.setAttribute("aria-pressed",x===b)); };
+  o.querySelector("#ngGo").onclick=async()=>{
+    const name=o.querySelector("#ngName").value.trim();
+    if(name.length<2){ toast("Give your group a name"); return; }
+    const g={id:"g"+(S.nextId++),name,meets:o.querySelector("#ngMeets").value.trim(),about:o.querySelector("#ngAbout").value.trim(),art,members:1,joined:true,isAdmin:true,people:[],events:[]};
+    const id=await api.createGroup(g);
+    if(LIVE && !id) return;
+    if(id) g.id=id;
+    S.groups.unshift(g); save(); o.remove(); openGroup(g.id); toast(`${name} is ready`);
+  };
+}
+function openNewEvent(g){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>New event</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <label class="eyebrow" for="neTitle">What</label><input class="field" id="neTitle" maxlength="80" placeholder="Like “Fall retreat”" autocomplete="off">
+    <div class="row"><div style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:6px"><label class="eyebrow" for="neDate">Date</label><input class="field" type="date" id="neDate"></div>
+      <div style="flex:1;min-width:120px;display:flex;flex-direction:column;gap:6px"><label class="eyebrow" for="neTime">Time</label><input class="field" type="time" id="neTime" value="19:00"></div></div>
+    <label class="eyebrow" for="nePlace">Where</label><input class="field" id="nePlace" maxlength="80" placeholder="Like “Fellowship Hall”" autocomplete="off">
+    <button class="pill solid" id="neGo" style="justify-content:center;padding:12px">Add event</button>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelector("#neGo").onclick=async()=>{
+    const title=o.querySelector("#neTitle").value.trim(), date=o.querySelector("#neDate").value, time=o.querySelector("#neTime").value||"19:00";
+    if(title.length<2){ toast("Name the event"); return; }
+    if(!date){ toast("Pick a date"); return; }
+    const when=new Date(`${date}T${time}`);
+    const ev=Object.assign(eventFields(when),{t:title,where:o.querySelector("#nePlace").value.trim(),n:0,going:false});
+    const id=await api.addEvent(g,{title,starts_at:when.toISOString(),place:ev.where});
+    if(LIVE && !id) return;
+    ev.id=id; g.events.push(ev); g.events.sort((a,b)=>a.at-b.at); save(); o.remove(); render(); toast("Event added");
+  };
+}
+// month/day/time labels for an event date
+function eventFields(when){
+  return {at:+when, m:when.toLocaleDateString("en-US",{month:"short"}), d:when.getDate(),
+    time:when.toLocaleDateString("en-US",{weekday:"short"})+" "+when.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})};
+}
+
+// ---------- SEARCH ----------
+let searchQ="";
+const liveFound={};
+function runSearch(){
+  const box=$("#srch"), body=$("#cbody"); if(!box) return;
+  const q=searchQ.trim().toLowerCase();
+  box.hidden=!q; body.hidden=!!q;
+  if(!q){ box.innerHTML=""; return; }
+  let ppl, searching=false;
+  if(api.searchPeople){
+    ppl=liveFound[q];
+    if(!ppl){ searching=true; ppl=[]; api.searchPeople(q).then(ids=>{ liveFound[q]=ids; if(searchQ.trim().toLowerCase()===q) runSearch(); }); }
+  } else ppl=Object.keys(PEOPLE).filter(id=>id!=="me" && PEOPLE[id].name.toLowerCase().includes(q));
+  const grp=S.groups.filter(g=>(g.name+" "+g.about).toLowerCase().includes(q));
+  const gRow=g=>`<button class="li" data-sg="${g.id}"><div class="gthumb" style="${artCss(g.art)}"></div><div class="m"><b>${esc(g.name)}</b><small>${g.members} members · ${g.joined?"Joined":"Public group"}</small></div></button>`;
+  box.innerHTML =
+    (ppl.length ? `<div class="sec-h"><h3>People</h3><small>${ppl.length} found</small></div><div class="card list">${ppl.map(id=>{
+      const fr = id in S.streaks, bl = isBlocked(id), inc = (S.requests||[]).includes(id), rq = S.requested && S.requested[id];
+      const sub = bl?"Blocked":fr?"Friend":PEOPLE[id].username?"@"+PEOPLE[id].username:(PEOPLE[id].bio||"");
+      const btn = bl?`<button class="pill" data-unblock="${id}">Unblock</button>`:fr?`<button class="pill" data-sp="${id}">Message</button>`
+        :inc?`<button class="pill solid" data-accept="${id}">Accept</button>`:rq?`<span class="pill" style="color:var(--muted)">Requested</span>`:`<button class="pill solid" data-add="${id}">Add friend</button>`;
+      return `<div class="li">${av(id,'sm')}<div class="m"><b>${esc(PEOPLE[id].name)}</b><small>${esc(sub)}</small></div>${btn}</div>`;
+    }).join("")}</div>` : "")
+    + (grp.length ? `<div class="sec-h"><h3>Groups</h3><small>${grp.length} found</small></div><div class="card list">${grp.map(gRow).join("")}</div>` : "")
+    + (searching ? `<div class="card empty">Looking for people…</div>` : "")
+    + (!searching && !ppl.length && !grp.length ? `<div class="card empty">No people or groups match “${esc(searchQ.trim())}”. Try a first name or a group like “youth”.</div>` : "");
+  box.querySelectorAll("[data-sp]").forEach(b=>b.onclick=()=>openThread(b.dataset.sp));
+  box.querySelectorAll("[data-sg]").forEach(b=>b.onclick=()=>openGroup(b.dataset.sg));
+  box.querySelectorAll("[data-unblock]").forEach(b=>b.onclick=()=>unblock(b.dataset.unblock));
+  bindRequestButtons(box);
+  box.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.add;
+    if(LIVE){ S.requested[id]=true; api.requestFriend(id); runSearch(); toast(`Friend request sent to ${PEOPLE[id].short}`); return; }
+    S.streaks[id]=0; S.dms[id]=S.dms[id]||[]; save(); render();
+    toast(`You and ${PEOPLE[id].short} are now friends`);
+  });
+}
+
+// ---------- DIRECT MESSAGES ----------
+const REPLIES=["Amen!","Haha yes","Praying for you too","Love that verse","See you Sunday!","That's so good","Thank you, friend"];
+function lastPreview(id){
+  if(S.snaps.some(s=>s.from===id&&!s.opened)) return `<span class="sq new"></span><b style="color:var(--like);display:inline">New Looking Glass</b>`;
+  const m=(S.dms[id]||[]).slice(-1)[0];
+  if(!m) return "Say hello";
+  const txt = m.kind==="glass" ? (m.f==="me"?"Sent a Looking Glass":"Opened a Looking Glass") : m.kind==="share" ? "Shared a post" : m.kind==="verse" ? m.ref : m.t;
+  const who = m.f==="me" ? "You: " : "";
+  return S.unread[id]>0 ? `<b style="display:inline;color:var(--ink)">${esc(txt)}</b>` : who+esc(txt);
+}
+function msgHtml(m){
+  const me=m.f==="me";
+  if(m.kind==="glass") return `<div class="bub note ${me?'me':''}"><span class="sq ${me?'sent':'open'}"></span>${me?"You sent a Looking Glass":"You opened their Looking Glass"}</div>`;
+  if(m.kind==="share") return `<div class="bub share ${me?'me':''}"><div class="mini" style="${m.art?artCss(m.art):'background:var(--soft)'}"></div><div><small>Shared a post</small>${esc(m.t||"")}</div></div>`;
+  if(m.kind==="verse") return `<div class="bub verse ${me?'me':''}">${esc(m.t)}<small>${esc(m.ref)}</small></div>`;
+  return `<div class="bub ${me?'me':''}">${esc(m.t)}</div>`;
+}
+function openThread(id){
+  closeCreate();
+  S.unread[id]=0; api.markRead(id); save(); render();
+  const o=document.createElement("div"); o.className="ov thread";
+  o.innerHTML=`<div class="th gut"><button class="ibtn" data-back aria-label="Back to messages">${ICON.back}</button>${av(id,'sm')}<div class="m"><b>${PEOPLE[id].name}</b><small class="fire">${S.streaks[id]} day streak</small></div><button class="ibtn" data-tmore aria-label="Report or block ${PEOPLE[id].short}">${ICON.more}</button></div>
+    <div class="msgs gut" id="msgs"></div>
+    <form class="mform gut" id="mform"><button type="button" class="ibtn" data-glass aria-label="Send a Looking Glass">${ICON.glass}</button><button type="button" class="ibtn" data-verse aria-label="Send the verse of the day">${ICON.book}</button><input id="mInput" placeholder="Message ${PEOPLE[id].short}…" autocomplete="off"><button class="pill solid">Send</button></form>`;
+  $("#app").appendChild(o);
+  const list=o.querySelector("#msgs");
+  let typing=false;
+  function draw(){
+    const si=S.snaps.findIndex(s=>s.from===id&&!s.opened);
+    const msgs=S.dms[id]||[];
+    list.innerHTML = (msgs.length||si>=0||typing) ? msgs.map(msgHtml).join("")
+      + (si>=0?`<button class="bub glassbub" data-open="${si}"><span class="sq new"></span>Tap to view Looking Glass</button>`:"")
+      + (typing?`<div class="bub typing">${PEOPLE[id].short} is typing…</div>`:"")
+      : `<div class="empty" style="text-align:center">Start a conversation with ${PEOPLE[id].short}.</div>`;
+    const g=list.querySelector("[data-open]");
+    if(g) g.onclick=()=>openSnap(+g.dataset.open, ()=>{ (S.dms[id]=S.dms[id]||[]).push({f:id,kind:"glass"}); save(); draw(); });
+    list.scrollTop=list.scrollHeight;
+  }
+  function send(msg){
+    (S.dms[id]=S.dms[id]||[]).push(msg); S.sent[id]="now"; save();
+    if(LIVE){ api.message(id,msg); draw(); return; }
+    typing=true; draw();
+    setTimeout(()=>{
+      typing=false; const reply=REPLIES[Math.floor(Math.random()*REPLIES.length)]; S.dms[id].push({f:id,t:reply});
+      if(o.isConnected) draw(); else { S.unread[id]=(S.unread[id]||0)+1; notify({type:"message",from:id,text:reply}); }
+      save(); softRender();
+    },1400);
+  }
+  o.querySelector("#mform").onsubmit=e=>{ e.preventDefault(); const i=o.querySelector("#mInput"); const t=i.value.trim(); if(!t) return; i.value=""; send({f:"me",t}); };
+  o.querySelector("[data-verse]").onclick=()=>send({f:"me",kind:"verse",t:VOTD.text,ref:VOTD.ref});
+  o.querySelector("[data-glass]").onclick=()=>{ o.remove(); render(); startGlass(); };
+  o.querySelector("[data-back]").onclick=()=>{ o.remove(); render(); };
+  o.querySelector("[data-tmore]").onclick=()=>personMenu(id,{kind:"message",label:"conversation",ref:((S.dms[id]||[]).filter(m=>m.f===id).slice(-1)[0]||{}).t||""});
+  o.dataset.who=id; o.draw=draw;
+  draw();
+}
+
+// ---------- GROUP PAGES ----------
+function openGroup(id){ S.groupId=id; S.gtab="discussion"; go("group"); }
+function renderGroup(){
+  const g=S.groups.find(x=>x.id===S.groupId);
+  if(!g){ S.tab="chats"; return renderChats(); }
+  const gt=S.gtab||"discussion";
+  const posts=visiblePosts(S.posts.filter(p=>p.group===g.name));
+  let body="";
+  if(gt==="discussion") body = (g.joined
+      ? `<div class="card composer">${av('me','sm')}<button class="fake" id="gCompose">Write something to the group…</button></div>`
+      : `<div class="card empty">Join this group to post and RSVP to events.</div>`)
+    + (posts.length ? posts.map(postHtml).join("") : `<div class="card empty">No posts yet. Start the conversation.</div>`);
+  if(gt==="events") body=(g.isAdmin?`<button class="pill" id="gAddEvent" style="align-self:flex-start">Add event</button>`:"")+`<div class="card list">${g.events.length?"":`<div class="empty">No upcoming events${g.isAdmin?". Add one above.":"."}</div>`}${g.events.map((e,i)=>`<div class="event"><div class="date"><small>${e.m}</small><b>${e.d}</b></div><div class="m"><b>${esc(e.t)}</b><small>${e.time} · ${esc(e.where)}</small><small>${e.n} going</small></div><button class="pill ${e.going?'solid':''}" data-ev="${i}" aria-pressed="${e.going}">${e.going?'Going':'RSVP'}</button></div>`).join("")}</div>`;
+  if(gt==="members"){
+    const shown = (g.joined ? ["me",...g.people] : g.people).filter(id=>!isBlocked(id));
+    body=`<div class="card mgrid">${shown.map(id=>`<div class="mem">${av(id)}<span>${PEOPLE[id].short}</span></div>`).join("")}</div><p class="demo">and ${g.members-shown.length} more members</p>`;
+  }
+  const v=$("#view");
+  v.innerHTML=`<button class="back" id="gBack">${ICON.back}Friends</button>
+    <div class="gcover" style="${artCss(g.art)}"></div>
+    <section class="ghead"><h2>${esc(g.name)}</h2><small>${g.members} members · Meets ${esc(g.meets)}</small><p>${esc(g.about)}</p>
+      <div class="row"><button class="pill ${g.joined?'':'solid'}" id="gJoin">${g.joined?'Leave group':'Join group'}</button>${g.joined?'<button class="pill" id="gInvite">Invite friends</button>':''}</div></section>
+    <div class="gtabs" role="tablist">${[["discussion","Discussion"],["events","Events"],["members","Members"]].map(([k,l])=>`<button class="gtab" role="tab" data-gt="${k}" aria-selected="${gt===k}">${l}</button>`).join("")}</div>
+    ${body}`;
+  bindPosts(v);
+  $("#gBack").onclick=()=>go("chats");
+  v.querySelectorAll("[data-gt]").forEach(b=>b.onclick=()=>{ S.gtab=b.dataset.gt; save(); render(); });
+  $("#gJoin").onclick=()=>{
+    g.joined=!g.joined; g.members+=g.joined?1:-1; api.joinGroup(g,g.joined);
+    if(!g.joined) g.events.forEach(e=>{ if(e.going){ e.going=false; e.n--; } });
+    save(); render(); toast(g.joined?`You joined ${g.name}`:`You left ${g.name}`);
+  };
+  const ae=$("#gAddEvent"); if(ae) ae.onclick=()=>openNewEvent(g);
+  const inv=$("#gInvite"); if(inv) inv.onclick=()=>openSendSheet({cap:`Join ${g.name} on Selah`,art:g.art});
+  const gc=$("#gCompose"); if(gc) gc.onclick=()=>openComposer({group:g.name,groupId:g.id});
+  v.querySelectorAll("[data-ev]").forEach(b=>b.onclick=()=>{
+    if(!g.joined){ toast("Join the group to RSVP"); return; }
+    const e=g.events[+b.dataset.ev]; e.going=!e.going; e.n+=e.going?1:-1; api.rsvp(e,e.going); save(); render();
+    if(e.going) toast(`You're going to ${e.t}`);
+  });
+}
+
+// ---------- PROFILE ----------
+function renderMe(){
+  const mine=S.posts.filter(p=>p.by==="me").length;
+  const hls=Object.entries(S.highlights);
+  const colorOf={gold:"#E0B44A",sky:"#7DB8D9",rose:"#E58A97"};
+  const v=$("#view");
+  v.innerHTML=`<section class="card prof"><button class="ibtn gear" id="openSettings" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>${av('me')}<h2>${esc(S.profile.name)}</h2><small style="color:var(--muted)">@${esc(S.profile.handle)}${S.profile.church?` · ${esc(S.profile.church)}`:''}</small>
+      <button class="pill" id="editProfile" style="margin-top:6px">Edit profile</button>
+      <div class="stats"><div><b>${mine}</b><small>Posts</small></div><div><b>${Object.keys(S.streaks).length}</b><small>Friends</small></div><div><b>${S.streak}</b><small>Day streak</small></div></div></section>
+    <div class="sec-h"><h3>Highlights</h3><small>${hls.length} verses</small></div>
+    <div class="card hlgrid">${hls.length?hls.map(([k,h])=>`<div class="hl"><i style="background:${colorOf[h.c]}"></i><div>${esc(h.t)}<div style="font-family:var(--body);font-weight:600;font-size:13px;color:var(--accent);margin-top:4px">${esc(k)} ${esc(h.tr||"")}</div></div></div>`).join(""):'<div class="empty">Tap any verse in the Bible tab to highlight it.</div>'}</div>
+    `;
+  $("#openSettings").onclick=openSettings;
+  $("#editProfile").onclick=openEditProfile;
+}
+
+// shrink uploaded photos so they fit in browser storage
+function shrinkImage(file, size, cb){
+  const r=new FileReader();
+  r.onload=()=>{ const im=new Image(); im.onload=()=>{
+    const s=Math.min(im.width,im.height), c=document.createElement("canvas"); c.width=c.height=size;
+    c.getContext("2d").drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,size,size);
+    cb(c.toDataURL("image/jpeg",0.85));
+  }; im.onerror=()=>toast("That file couldn't be read as a picture"); im.src=r.result; };
+  r.readAsDataURL(file);
+}
+function openEditProfile(){
+  let photo=S.profile.photo;
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Edit profile</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="row" style="gap:14px"><div id="epAv"></div>
+      <div class="row"><label class="pill" style="cursor:pointer">Change picture<input type="file" id="epFile" accept="image/*" hidden></label><button class="pill" id="epRemove">Remove</button></div></div>
+    <label class="eyebrow" for="epName">Name</label><input class="field" id="epName" maxlength="40" value="${esc(S.profile.name)}" autocomplete="name">
+    <label class="eyebrow" for="epHandle">Username</label><input class="field" id="epHandle" maxlength="24" value="${esc(S.profile.handle)}" autocomplete="off">
+    <label class="eyebrow" for="epChurch">Church</label><input class="field" id="epChurch" maxlength="40" value="${esc(S.profile.church||"")}" placeholder="Optional" autocomplete="off">
+    <button class="pill solid" id="epSave" style="justify-content:center;padding:12px">Save</button>`);
+  const nameIn=o.querySelector("#epName");
+  const preview=()=>{ const keep=S.profile.photo, keepName=S.profile.name; S.profile.photo=photo; S.profile.name=nameIn.value.trim()||"?"; o.querySelector("#epAv").innerHTML=av("me"); S.profile.photo=keep; S.profile.name=keepName; o.querySelector("#epRemove").hidden=!photo; };
+  preview();
+  nameIn.oninput=preview;
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelector("#epFile").onchange=e=>{ const f=e.target.files[0]; if(f) shrinkImage(f,256,url=>{ photo=url; preview(); }); };
+  o.querySelector("#epRemove").onclick=()=>{ photo=null; preview(); };
+  o.querySelector("#epSave").onclick=()=>{
+    const name=nameIn.value.trim();
+    const handle=o.querySelector("#epHandle").value.trim().replace(/^@/,"").replace(/\s+/g,"");
+    if(!name){ toast("Enter a name"); return; }
+    if(!handle){ toast("Enter a username"); return; }
+    if(!/^[a-zA-Z0-9_.]{3,24}$/.test(handle)){ toast("Usernames are 3 to 24 letters, numbers, dots or underscores"); return; }
+    const next={name,handle:handle.toLowerCase(),church:o.querySelector("#epChurch").value.trim(),photo};
+    const btn=o.querySelector("#epSave"); btn.disabled=true; btn.textContent="Saving…";
+    api.saveProfile(next).then(ok=>{
+      if(!ok){ btn.disabled=false; btn.textContent="Save"; return; }
+      S.profile=Object.assign(S.profile,next,typeof ok==="object"?ok:{}); save(); o.remove(); render(); toast("Profile updated");
+    });
+  };
+}
+
+// ---------- NOTIFICATIONS ----------
+const tyIcon = t => TYICON[t] || (t==="pray"||t==="prayed" ? TYICON.like : TYICON.message);
+const TYICON={
+  like:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5-10-10a5.5 5.5 0 0 1 10-3.5A5.5 5.5 0 0 1 22 11c-2 5-10 10-10 10z"/></svg>',
+  comment:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H9l-6 5z"/></svg>',
+  message:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M22 2L2 10l8 3 3 9z"/></svg>'
+};
+const clip=(s,n=70)=>{ s=String(s||""); return s.length>n ? s.slice(0,n-1)+"…" : s; };
+function ago(t){ const s=(Date.now()-t)/1000; if(s<60) return "Just now"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; }
+function notifLine(n){
+  const who=`<b>${esc((PEOPLE[n.from]||{name:"Someone"}).name)}</b>`, q=n.text?`: “${esc(clip(n.text))}”`:"";
+  if(n.type==="like") return `${who} liked your ${n.what||"post"}${q}`;
+  if(n.type==="pray") return `${who} is praying with you${q}`;
+  if(n.type==="prayed") return `${who} prayed for your request${q}`;
+  if(n.type==="comment") return `${who} commented${q}`;
+  if(n.type==="glass") return `${who} sent you a Looking Glass`;
+  if(n.type==="friend_request") return `${who} sent you a friend request`;
+  if(n.type==="friend_accept") return `${who} accepted your friend request`;
+  return `${who} sent you a message${q}`;
+}
+function updateBell(){
+  const un=S.notifs.filter(n=>!n.read && !isBlocked(n.from)).length, c=$("#bellCount");
+  c.textContent=un>9?"9+":un; c.hidden=!un;
+  $("#btnBell").setAttribute("aria-label", un?`Notifications, ${un} new`:"Notifications");
+}
+// re-render without wiping something the person is typing
+function softRender(){
+  const a=document.activeElement;
+  if(a && $("#view").contains(a) && a.matches("input,textarea")){ updateBell(); $("#msgDot").hidden = !hasNewMessages(); return; }
+  const st=$("#view").scrollTop; render(); $("#view").scrollTop=st;
+}
+function notify(n){
+  if(S.notifPrefs[n.type]===false || isBlocked(n.from)) return;
+  n.id=S.nextId++; n.time=Date.now(); n.read=S.tab==="notifs";
+  S.notifs.unshift(n); S.notifs=S.notifs.slice(0,50); save();
+  if(S.tab==="notifs") softRender(); else { updateBell(); showBanner(n); }
+}
+function showBanner(n){
+  document.querySelector(".banner")?.remove();
+  const b=document.createElement("button"); b.className="banner";
+  b.innerHTML=`<div class="avwrap">${av(n.from,'sm')}<span class="ty ${n.type}">${tyIcon(n.type)}</span></div><div class="m">${notifLine(n)}</div>`;
+  b.onclick=()=>{ b.remove(); openNotif(n); };
+  $("#app").appendChild(b);
+  setTimeout(()=>b.remove(),4500);
+}
+function openNotif(n){
+  n.read=true; save();
+  clearInterval(storyTimer); closeCreate();
+  document.querySelectorAll(".ov").forEach(x=>x.remove());
+  if(n.type==="message"||n.type==="glass"||n.type==="friend_accept"){ if(S.streaks[n.from]!==undefined){ render(); openThread(n.from); return; } }
+  if(n.type==="friend_request"||n.type==="prayed"||n.type==="glass"||n.type==="friend_accept"||n.type==="message"){ S.tab="chats"; save(); render(); $("#view").scrollTop=0; return; }
+  const p=S.posts.find(x=>x.id===n.postId);
+  if(p && n.type==="comment") p.open=true;
+  S.tab="home"; sel.clear(); save(); render();
+  const el=p && document.querySelector(`.post[data-id="${p.id}"]`);
+  if(el) el.scrollIntoView({block:"start"}); else $("#view").scrollTop=0;
+}
+function renderNotifs(){
+  const v=$("#view");
+  v.innerHTML=`<div class="sec-h"><h3>Notifications</h3>${S.notifs.length?'<button class="pill" id="nClear">Clear all</button>':''}</div>
+    <div class="card list">${S.notifs.some(n=>!isBlocked(n.from)) ? S.notifs.filter(n=>!isBlocked(n.from)).map(n=>`<button class="nt ${n.read?'':'unread'}" data-n="${n.id}"><div class="avwrap">${av(n.from,'sm')}<span class="ty ${n.type}">${tyIcon(n.type)}</span></div><div class="m">${notifLine(n)}<small>${ago(n.time)}</small></div></button>`).join("")
+      : `<div class="empty">You're all caught up. Likes, comments and messages will show up here.</div>`}</div>
+    <p class="demo">Choose which notifications you get in Profile › Settings</p>`;
+  v.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>openNotif(S.notifs.find(n=>n.id==b.dataset.n)));
+  const c=$("#nClear"); if(c) c.onclick=()=>{ S.notifs=[]; api.clearNotifs(); save(); render(); };
+  // seen once the list has been shown
+  if(S.notifs.some(n=>!n.read)){ S.notifs.forEach(n=>n.read=true); api.readNotifs(); save(); }
+}
+// demo activity: friends react to what you post
+const FRIEND_IDS=["maya","eli","jon","grace","ruth"];
+const NICE=["Amen!","Love this","So encouraging, thank you","Praying with you","This made my day"];
+function simulateReactions(id){
+  const f=FRIEND_IDS.filter(id=>!isBlocked(id)).sort(()=>Math.random()-.5);
+  if(f.length<3) return;
+  [[2500,"like",f[0]],[5500,"like",f[1]],[9000,"comment",f[2]]].forEach(([ms,type,from])=>setTimeout(()=>{
+    const p=S.posts.find(x=>x.id===id); if(!p) return;
+    let text=p.cap||(p.verse&&p.verse.ref)||"";
+    if(type==="like") p.likes++; else { text=NICE[Math.floor(Math.random()*NICE.length)]; p.cmts.push({by:from,t:text}); }
+    save(); notify({type,from,postId:id,text}); softRender();
+  },ms));
+}
+
+// ---------- REPORT & BLOCK ----------
+const REPORT_REASONS=[["spam","Spam or scam"],["bully","Bullying or harassment"],["hate","Hate speech or symbols"],["sexual","Nudity or sexual content"],["violence","Violence or threats"],["selfharm","Suicide or self-harm"],["false","False information"],["other","Something else"]];
+function actionSheet(title, items){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>${title}</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="card list">${items.map((it,i)=>`<button class="li ${it.danger?'danger':''}" data-i="${i}"><span class="pickicon">${it.icon}</span><div class="m"><b>${it.label}</b>${it.sub?`<small>${it.sub}</small>`:""}</div></button>`).join("")}</div>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{ o.remove(); items[+b.dataset.i].fn(); });
+}
+const blockItem=id=>({icon:ICON.block,label:`Block ${PEOPLE[id].short}`,sub:"You won't see each other's posts, stories or messages",danger:true,fn:()=>confirmBlock(id)});
+function personMenu(id, what){
+  actionSheet(PEOPLE[id].name,[
+    {icon:ICON.flag,label:`Report ${what.label}`,sub:"Let us know if it breaks the rules",danger:true,fn:()=>openReport(id,what)},
+    blockItem(id)
+  ]);
+}
+function postMenu(p){
+  if(p.by==="me") return actionSheet("Your post",[{icon:ICON.trash,label:"Delete post",danger:true,fn:()=>confirmSheet("Delete this post?","It will be removed from your profile and everyone's feed. This can't be undone.","Delete",()=>{ S.posts=S.posts.filter(x=>x!==p); api.deletePost(p); save(); render(); toast("Post deleted"); })}]);
+  actionSheet(`${PEOPLE[p.by].short}'s post`,[
+    {icon:ICON.flag,label:"Report post",sub:"We'll hide it from you while we review it",danger:true,fn:()=>openReport(p.by,{kind:"post",label:"post",ref:p.cap,postId:p.id,hide:()=>{ S.hiddenPosts[p.id]=true; }})},
+    {icon:ICON.hide,label:"Hide post",sub:"Remove it from your feed",fn:()=>{ S.hiddenPosts[p.id]=true; save(); render(); toast("Post hidden"); }},
+    blockItem(p.by)
+  ]);
+}
+function commentMenu(p,i){
+  const c=p.cmts[i];
+  if(c.by==="me") return actionSheet("Your comment",[{icon:ICON.trash,label:"Delete comment",danger:true,fn:()=>{ api.deleteComment(c); p.cmts.splice(i,1); save(); render(); toast("Comment deleted"); }}]);
+  actionSheet(`${PEOPLE[c.by].short}'s comment`,[
+    {icon:ICON.flag,label:"Report comment",sub:"We'll hide it from you while we review it",danger:true,fn:()=>openReport(c.by,{kind:"comment",label:"comment",ref:c.t,commentId:c.id,postId:p.id,hide:()=>{ c.hidden=true; }})},
+    blockItem(c.by)
+  ]);
+}
+function prayerMenu(i){
+  const pr=S.prayers[i];
+  if(pr.by==="me") return actionSheet("Your prayer request",[{icon:ICON.trash,label:"Delete request",danger:true,fn:()=>{ api.deletePrayer(pr); S.prayers.splice(i,1); save(); render(); toast("Prayer request deleted"); }}]);
+  actionSheet(`${PEOPLE[pr.by].short}'s prayer request`,[
+    {icon:ICON.flag,label:"Report prayer request",sub:"We'll hide it from you while we review it",danger:true,fn:()=>openReport(pr.by,{kind:"prayer",label:"prayer request",ref:pr.t,prayerId:pr.id,hide:()=>{ pr.hidden=true; }})},
+    blockItem(pr.by)
+  ]);
+}
+function confirmSheet(title, text, yes, fn){
+  const o=sheet(`<h3>${title}</h3><p style="margin:0;color:var(--muted)">${text}</p>
+    <div class="row"><button class="pill" data-no style="flex:1;justify-content:center;padding:12px">Cancel</button><button class="pill solid dangerbtn" data-yes style="flex:1;justify-content:center;padding:12px">${yes}</button></div>`);
+  o.querySelector("[data-no]").onclick=()=>o.remove();
+  o.querySelector("[data-yes]").onclick=()=>{ o.remove(); fn(); };
+}
+function confirmBlock(id){
+  const n=PEOPLE[id];
+  confirmSheet(`Block ${n.name}?`,`You won't see ${n.short}'s posts, comments, stories, prayer requests or messages, and ${n.short} won't be able to message you. ${n.short} won't be told. You can unblock them any time in Profile › Settings.`,"Block",()=>{
+    S.blocked[id]=true; api.block(id); save();
+    clearInterval(storyTimer);
+    document.querySelectorAll(`.ov[data-who="${id}"]`).forEach(x=>x.remove());
+    render(); toast(`${n.short} is blocked`);
+  });
+}
+function unblock(id){ delete S.blocked[id]; api.unblock(id); save(); render(); toast(`${PEOPLE[id].short} is unblocked`); }
+function openReport(id, what){
+  const n=PEOPLE[id];
+  let reason=null;
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Report ${what.label}</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div><div class="body"></div>`);
+  const body=o.querySelector(".body");
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  const pickReason=()=>{
+    body.innerHTML=`<p class="rep-q">Why are you reporting this ${what.label}?</p>
+      <div class="card list">${REPORT_REASONS.map(([k,l])=>`<button class="li" data-r="${k}"><div class="m"><b>${l}</b></div>${ICON.back.replace('d="M15 5l-7 7 7 7"','d="M9 5l7 7-7 7"')}</button>`).join("")}</div>`;
+    body.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ reason=b.dataset.r; addDetails(); });
+  };
+  const addDetails=()=>{
+    const label=REPORT_REASONS.find(r=>r[0]===reason)[1];
+    body.innerHTML=`<button class="back" data-back>${ICON.back}Choose a different reason</button>
+      <p class="rep-q">${label}</p>
+      ${what.ref?`<blockquote class="rep-ref">${esc(clip(what.ref,140))}</blockquote>`:""}
+      <label class="eyebrow" for="repDetails">Anything else we should know? (optional)</label>
+      <textarea class="field" id="repDetails" maxlength="500" placeholder="Add details that help us understand what happened"></textarea>
+      <button class="pill solid" data-send style="justify-content:center;padding:12px">Submit report</button>`;
+    body.querySelector("[data-back]").onclick=pickReason;
+    body.querySelector("[data-send]").onclick=()=>{
+      const rec={who:id,kind:what.kind,reason,details:body.querySelector("#repDetails").value.trim(),ref:what.ref||"",time:Date.now(),postId:what.postId,commentId:what.commentId,prayerId:what.prayerId};
+      S.reports.push(rec); api.report(rec);
+      if(what.hide) what.hide();
+      save(); render(); done();
+    };
+  };
+  const done=()=>{
+    body.innerHTML=`<div class="rep-done"><span class="okicon">✓</span><h3>Thanks for reporting this</h3>
+      <p>Our team will review it. ${n.short} won't be told who reported it.${what.hide?` We've hidden it from you in the meantime.`:""}</p></div>
+      ${reason==="selfharm"?`<div class="crisis"><b>If someone is in immediate danger, call 911.</b>
+        <p>In the US you can call or text <b>988</b> to reach the Suicide &amp; Crisis Lifeline. It's free, confidential and open 24/7. Outside the US, call your local emergency number.</p>
+        <p>Talking to a parent, pastor or youth leader you trust can help too.</p></div>`:""}
+      <div class="row">${isBlocked(id)?"":`<button class="pill dangerline" data-block style="flex:1;justify-content:center;padding:12px">Block ${n.short}</button>`}<button class="pill solid" data-done style="flex:1;justify-content:center;padding:12px">Done</button></div>`;
+    const bb=body.querySelector("[data-block]"); if(bb) bb.onclick=()=>{ o.remove(); confirmBlock(id); };
+    body.querySelector("[data-done]").onclick=()=>o.remove();
+  };
+  pickReason();
+}
+
+const GUIDELINES=[
+  ["Be kind","Treat everyone with respect. Disagree gently, and build each other up."],
+  ["No bullying or harassment","Don't insult, threaten, shame or pile on anyone, in public or in messages."],
+  ["No hate","Nothing that attacks people for their race, ethnicity, nationality, sex, disability, age or any other part of who they are."],
+  ["Keep it clean","No nudity, sexual content, graphic violence or drug use. Many members are teenagers."],
+  ["Be honest","Don't pretend to be someone else, spam, scam or spread false information."],
+  ["Keep people safe","Don't share other people's private information or photos of them without permission. If someone may hurt themselves, report it and tell a trusted adult. In an emergency, call 911."],
+  ["We act on reports","Our team reviews every report. Content that breaks these rules is removed, and accounts that keep breaking them are removed too."]
+];
+function openGuidelines(){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Community guidelines</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <p style="margin:0;color:var(--muted)">Selah is a place to share faith and encourage each other. By using it you agree to these rules. Breaking them can get content or accounts removed.</p>
+    <div class="card list">${GUIDELINES.map(([h,t])=>`<div class="setrow"><div class="m"><b>${h}</b><small>${t}</small></div></div>`).join("")}</div>
+    <p style="margin:0;color:var(--muted)">See something that breaks these rules? Use the ⋯ button on it to report it or block the person.</p>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+}
+
+// ---------- SETTINGS ----------
+const ORIG_THEME=document.documentElement.getAttribute("data-theme");
+function applyTheme(){
+  const r=document.documentElement;
+  if(S.theme==="dark"||S.theme==="light") r.setAttribute("data-theme",S.theme);
+  else if(ORIG_THEME) r.setAttribute("data-theme",ORIG_THEME);
+  else r.removeAttribute("data-theme");
+}
+function isDark(){
+  const a=document.documentElement.getAttribute("data-theme");
+  if(a) return a==="dark";
+  try { return matchMedia("(prefers-color-scheme: dark)").matches; } catch(e){ return false; }
+}
+function openSettings(){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Settings</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="eyebrow">Appearance</div>
+    <div class="card">
+      <label class="setrow" for="setDark"><div class="m"><b>Dark mode</b><small>Easier on the eyes for late-night reading</small></div><input type="checkbox" role="switch" class="switch" id="setDark"></label>
+      <label class="setrow" for="setSystem"><div class="m"><b>Match my device</b><small>Follow your phone's light or dark setting</small></div><input type="checkbox" role="switch" class="switch" id="setSystem"></label>
+    </div>
+    <div class="eyebrow">Notifications</div>
+    <div class="card">${LIVE?`<div class="setrow" id="pushRow"><div class="m"><b>Push notifications</b><small>Checking…</small></div></div>`:""}${[["like","Likes","When someone likes your posts or comments"],["comment","Comments","When someone comments on your posts"],["message","Messages","When a friend sends you a message"]].map(([k,l,d])=>`<label class="setrow" for="np-${k}"><div class="m"><b>${l}</b><small>${d}</small></div><input type="checkbox" role="switch" class="switch" id="np-${k}" data-np="${k}" ${S.notifPrefs[k]?"checked":""}></label>`).join("")}</div>
+    <div class="eyebrow">Privacy &amp; safety</div>
+    <div class="card" id="blockedList"></div>
+    <div class="card"><div class="setrow"><div class="m"><b>Community guidelines</b><small>What's welcome on Selah, and what isn't</small></div><button class="pill" id="setRules">Read</button></div></div>
+    ${LIVE?`<div class="eyebrow">Account</div>
+    <div class="card"><div class="setrow"><div class="m"><b>Signed in</b><small>${esc(liveEmail())}</small></div><button class="pill" id="setLogout">Log out</button></div>
+      <div class="setrow"><div class="m"><b>Delete account</b><small>Permanently deletes your profile, posts, messages and photos</small></div><button class="pill dangerline" id="setDelete">Delete</button></div></div>`
+    :`<div class="eyebrow">Demo</div>
+    <div class="card"><div class="setrow"><div class="m"><b>Reset demo data</b><small>Bring back the sample posts, chats and groups</small></div><button class="pill" id="setReset">Reset</button></div></div>`}`);
+  const dark=o.querySelector("#setDark"), sys=o.querySelector("#setSystem");
+  const sync=()=>{ dark.checked=isDark(); sys.checked=!S.theme; };
+  sync();
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  const drawBlocked=()=>{
+    const ids=Object.keys(S.blocked);
+    o.querySelector("#blockedList").innerHTML=(ids.length
+      ? ids.map(id=>`<div class="setrow">${av(id,'sm')}<div class="m"><b>${PEOPLE[id].name}</b><small>Blocked</small></div><button class="pill" data-unb="${id}">Unblock</button></div>`).join("")
+      : `<div class="setrow"><div class="m"><b>Blocked accounts</b><small>No one is blocked. Use the ⋯ button on a post, comment, story or chat to block someone.</small></div></div>`)
+      + `<div class="setrow"><div class="m"><b>Reports you've sent</b><small>${S.reports.length?`${S.reports.length} report${S.reports.length>1?"s":""}. Reports are private: no one is told who sent them.`:"Use the ⋯ button on anything that breaks the rules to report it."}</small></div></div>`;
+    o.querySelectorAll("[data-unb]").forEach(b=>b.onclick=()=>{ unblock(b.dataset.unb); drawBlocked(); });
+  };
+  drawBlocked();
+  o.querySelectorAll("[data-np]").forEach(i=>i.onchange=()=>{ S.notifPrefs[i.dataset.np]=i.checked; save(); });
+  dark.onchange=()=>{ S.theme=dark.checked?"dark":"light"; applyTheme(); save(); sync(); };
+  sys.onchange=()=>{ S.theme=sys.checked?null:(isDark()?"dark":"light"); applyTheme(); save(); sync(); };
+  o.querySelector("#setRules").onclick=openGuidelines;
+  if(LIVE) drawPushRow(o.querySelector("#pushRow"));
+  if(LIVE){ o.querySelector("#setLogout").onclick=()=>{ o.remove(); liveLogout(); }; o.querySelector("#setDelete").onclick=()=>{ o.remove(); openDeleteAccount(); }; return; }
+  o.querySelector("#setReset").onclick=()=>{ const t=S.theme, pf=S.profile; S=SEED(); S.theme=t; S.profile=pf; S.tab="me"; save(); o.remove(); render(); toast("Demo data reset"); };
+}
+
+applyTheme();
+if(LIVE) startLive(); else render();
+// demo: one incoming message shortly after the first visit
+if(!LIVE && !S.demoPing) setTimeout(()=>{
+  if(document.querySelector(".ov.thread") || isBlocked("maya")) return;
+  S.demoPing=true; const t="Did you see Jonah's baptism post? So good";
+  (S.dms.maya=S.dms.maya||[]).push({f:"maya",t}); S.unread.maya=(S.unread.maya||0)+1;
+  save(); notify({type:"message",from:"maya",text:t}); softRender();
+},7000);
+</script>
+<script>
+// ---------- native app & install support ----------
+(function(){
+  const cap = window.Capacitor;
+  const native = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+  // offline cache for the web/PWA version (not needed inside the native shell)
+  if(!native && "serviceWorker" in navigator && location.protocol.startsWith("http")){
+    window.addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  }
+  // Android back button: close the top sheet/viewer first, then go Home, then leave the app
+  const App = native && cap.Plugins && cap.Plugins.App;
+  if(App){
+    App.addListener("backButton", ()=>{
+      if(document.querySelector(".cmenu")) return closeCreate();
+      const ovs=document.querySelectorAll(".ov");
+      if(ovs.length){ clearInterval(storyTimer); ovs[ovs.length-1].remove(); render(); return; }
+      if(sel.size){ sel.clear(); render(); return; }
+      if(S.tab!=="home") return go("home");
+      App.exitApp();
+    });
+  }
+})();
+</script>
+</body>
+</html>

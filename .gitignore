@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+*.log
+tests/push-mock/keys.json
+tests/push-mock/push.env
+supabase/.temp/
+supabase/.branches/
+.env
+*.p8
+google-services.json
+GoogleService-Info.plist

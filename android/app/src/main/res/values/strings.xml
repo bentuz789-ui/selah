@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Selah</string>
+    <string name="title_activity_main">Selah</string>
+    <string name="package_name">com.selahapp.selah</string>
+    <string name="custom_url_scheme">com.selahapp.selah</string>
+</resources>

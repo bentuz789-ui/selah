@@ -1,0 +1,32 @@
+{
+  "name": "selah",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Selah: a faith-centered social app with a feed, stories, Looking Glass, groups, messages and a Bible reader.",
+  "scripts": {
+    "start": "http-server www -p 8080 -c-1",
+    "assets": "capacitor-assets generate --android --ios --iconBackgroundColor '#2E5E50' --iconBackgroundColorDark '#2E5E50' --splashBackgroundColor '#EEF2F5' --splashBackgroundColorDark '#0D1317'",
+    "sync": "cap sync",
+    "android": "cap sync android && cap open android",
+    "ios": "cap sync ios && cap open ios",
+    "test:security": "node tests/security.test.mjs",
+    "db:start": "supabase start",
+    "test:push": "node tests/push.test.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/push-notifications": "^8.1.3",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@supabase/supabase-js": "^2.118.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "http_ece": "^1.2.0",
+    "http-server": "^14.1.1",
+    "supabase": "^2.122.0"
+  }
+}
