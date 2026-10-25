@@ -333,6 +333,11 @@ button:disabled{opacity:.6;cursor:default}
 .pushask{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding-block:4px 8px}
 .pushask p{margin:0;color:var(--muted);max-width:36ch}
 
+/* file pickers: invisible but still part of the page, inside the label that's tapped */
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;opacity:0}
+label.li,label.pill{cursor:pointer;position:relative}
+label.li:focus-within,label.pill:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+
 /* direct messages */
 .thread{background:var(--bg)}
 .thread .th{display:flex;align-items:center;gap:10px;padding-block:8px;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -643,7 +648,7 @@ function openComposer(prefill={}){
     ${prefill.verse?`<div class="overlay-verse" style="margin:0;background:var(--accent)">${esc(prefill.verse.text)}<small>${esc(prefill.verse.ref)}</small></div>`:''}
     <div class="eyebrow">Background</div>
     <div class="swatches" id="pSw"><button class="swatch" data-k="" aria-pressed="${!art}" style="background:var(--bg)" aria-label="None"></button>${Object.keys(ART).map(k=>`<button class="swatch" data-k="${k}" aria-pressed="${art===k}" style="${artCss(k)}" aria-label="${k}"></button>`).join("")}</div>
-    <label class="pill" style="align-self:flex-start;cursor:pointer">Upload photo<input type="file" id="pFile" accept="image/*" hidden></label>
+    <label class="pill" style="align-self:flex-start">Upload photo<input type="file" id="pFile" accept="image/*" class="vh"></label>
     <div class="row"><label class="toggle"><input type="checkbox" id="pPrayer"> Mark as prayer request</label></div>
     <button class="pill solid" id="pGo" style="justify-content:center;padding:12px">Share to feed</button>`);
   o.querySelector("[data-x]").onclick=()=>o.remove();
@@ -747,7 +752,7 @@ function renderSnap(){
       ${draft.cap?`<div class="cap">${esc(draft.cap)}</div>`:''}
       ${draft.verse?`<div class="stick">${esc(VOTD.text)}<small>${VOTD.ref}</small></div>`:''}
     </div>
-    <div class="row"><button class="pill" id="sCam">Camera</button><button class="pill" id="sLib">Photos</button>${draft.img?'<button class="pill" id="sClear">Remove photo</button>':''}</div>
+    <div class="row"><label class="pill" id="sCam">Camera${photoInput(true)}</label><label class="pill" id="sLib">Photos${photoInput(false)}</label>${draft.img?'<button class="pill" id="sClear">Remove photo</button>':''}</div>
     <div class="swatches" id="sSw">${Object.keys(ART).map(k=>`<button class="swatch" data-k="${k}" aria-pressed="${!draft.img&&draft.art===k}" style="${artCss(k)}" aria-label="${k} backdrop"></button>`).join("")}</div>
     <input class="field" id="sCap" placeholder="Add a caption" value="${esc(draft.cap)}" autocomplete="off">
     <label class="toggle"><input type="checkbox" id="sVerse" ${draft.verse?'checked':''}> Add verse sticker (${VOTD.ref})</label>
@@ -755,8 +760,8 @@ function renderSnap(){
       ? `<button class="pill solid" id="sStory" style="flex:1;justify-content:center;padding:12px">Share to my story</button>`
       : `<button class="pill solid" id="sSend" style="flex:1;justify-content:center;padding:12px">Send to friends</button>`}</div>
   </div>`;
-  $("#sCam").onclick=()=>pickImage(true, url=>{ draft.img=url; renderSnap(); });
-  $("#sLib").onclick=()=>pickImage(false, url=>{ draft.img=url; renderSnap(); });
+  onPhoto($("#sCam"),1080,url=>{ draft.img=url; renderSnap(); });
+  onPhoto($("#sLib"),1080,url=>{ draft.img=url; renderSnap(); });
   const sc=$("#sClear"); if(sc) sc.onclick=()=>{ draft.img=null; renderSnap(); };
   $("#sSw").onclick=e=>{ const b=e.target.closest(".swatch"); if(!b) return; draft.art=b.dataset.k; draft.img=null; renderSnap(); };
   $("#sCap").oninput=e=>{ draft.cap=e.target.value; const cv=$("#cv"); let c=cv.querySelector(".cap"); if(!c){ c=document.createElement("div"); c.className="cap"; cv.insertBefore(c, cv.querySelector(".stick")); } c.textContent=draft.cap; c.hidden=!draft.cap; };
@@ -766,12 +771,13 @@ function renderSnap(){
   else $("#sSend").onclick=()=>openSendSheet(content(),"glass");
 }
 
-// camera or photo library: on phones, capture opens the camera app directly
-function pickImage(useCamera, cb){
-  const i=document.createElement("input"); i.type="file"; i.accept="image/*";
-  if(useCamera) i.setAttribute("capture","environment");
-  i.onchange=()=>{ const f=i.files[0]; if(f) scaleImage(f,1080,cb); };
-  i.click();
+// Camera or photo library. The file input sits inside the button the person taps (a <label>),
+// because phone browsers, iPhone Safari especially, ignore a picker opened from code.
+// On phones, capture="environment" opens the camera app directly.
+const photoInput = camera => `<input type="file" accept="image/*" class="vh"${camera?' capture="environment"':''}>`;
+function onPhoto(label, max, cb){
+  const i=label.querySelector('input[type="file"]');
+  i.onchange=()=>{ const f=i.files[0]; i.value=""; if(f) scaleImage(f,max,cb); };
 }
 function scaleImage(file, max, cb){
   const r=new FileReader();
@@ -786,16 +792,14 @@ function scaleImage(file, max, cb){
 function startGlass(mode="glass"){
   const o=sheet(`<div class="row" style="justify-content:space-between"><h3>${mode==="story"?"New story":"New Looking Glass"}</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
     <div class="card list">
-      <button class="li" data-pick="camera"><span class="pickicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><div class="m"><b>Camera</b><small>Take a photo now</small></div></button>
-      <button class="li" data-pick="photo"><span class="pickicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.8"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg></span><div class="m"><b>Photo</b><small>Choose one from your library</small></div></button>
+      <label class="li" data-pick="camera"><span class="pickicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><div class="m"><b>Camera</b><small>Take a photo now</small></div>${photoInput(true)}</label>
+      <label class="li" data-pick="photo"><span class="pickicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.8"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg></span><div class="m"><b>Photo</b><small>Choose one from your library</small></div>${photoInput(false)}</label>
     </div>
     <button class="pill" data-pick="bg" style="align-self:center">Or write on a color background</button>`);
   o.querySelector("[data-x]").onclick=()=>o.remove();
   const open=img=>{ draft.img=img; draft.mode=mode; go("snap"); };
-  o.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{
-    const k=b.dataset.pick; o.remove();
-    if(k==="bg") open(null); else pickImage(k==="camera", open);
-  });
+  o.querySelectorAll("label[data-pick]").forEach(l=>onPhoto(l,1080,img=>{ o.remove(); open(img); }));
+  o.querySelector('[data-pick="bg"]').onclick=()=>{ o.remove(); open(null); };
 }
 
 // ---------- BIBLE ----------
@@ -1270,7 +1274,7 @@ function openEditProfile(){
   let photo=S.profile.photo;
   const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Edit profile</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
     <div class="row" style="gap:14px"><div id="epAv"></div>
-      <div class="row"><label class="pill" style="cursor:pointer">Change picture<input type="file" id="epFile" accept="image/*" hidden></label><button class="pill" id="epRemove">Remove</button></div></div>
+      <div class="row"><label class="pill">Change picture<input type="file" id="epFile" accept="image/*" class="vh"></label><button class="pill" id="epRemove">Remove</button></div></div>
     <label class="eyebrow" for="epName">Name</label><input class="field" id="epName" maxlength="40" value="${esc(S.profile.name)}" autocomplete="name">
     <label class="eyebrow" for="epHandle">Username</label><input class="field" id="epHandle" maxlength="24" value="${esc(S.profile.handle)}" autocomplete="off">
     <label class="eyebrow" for="epChurch">Church</label><input class="field" id="epChurch" maxlength="40" value="${esc(S.profile.church||"")}" placeholder="Optional" autocomplete="off">
