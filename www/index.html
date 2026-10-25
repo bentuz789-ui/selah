@@ -245,6 +245,7 @@ main>*{flex-shrink:0}
 .search input{flex:1;min-width:0;border:0;background:transparent;outline:none;color:var(--ink)}
 #srch{display:flex;flex-direction:column;gap:14px}
 #cbody{display:contents}
+#cbody>*{flex-shrink:0} /* its children sit in the page layout directly, so they must not shrink either */
 .pickicon{width:40px;height:40px;border-radius:12px;background:var(--soft);color:var(--accent);display:grid;place-items:center;flex:0 0 auto}
 
 /* notifications */
