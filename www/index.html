@@ -31,6 +31,8 @@ img{max-width:100%}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--surface);z-index:100}
 </style>
 <style>
+/* every box includes its padding and border in its width (the published preview has no reset of its own) */
+*,*::before,*::after{box-sizing:border-box}
 /* Layout: a single phone-width app column (header / scrolling view / tab bar), centred on wide screens. */
 :root{
   --bg:#EEF2F5; --surface:#FFFFFF; --ink:#15212B; --muted:#5A6B78; --line:#DBE3EA;
