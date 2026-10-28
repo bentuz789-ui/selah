@@ -745,38 +745,59 @@ function slideHtml(sl){
     ${sl.cap?`<div class="cap" style="position:relative;width:100%;text-align:center;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:17px;padding:8px 12px">${esc(sl.cap)}</div>`:''}
     ${sl.verse?`<div class="overlay-verse" style="max-width:85%;font-size:18px">${esc(sl.verse.text)}<small>${esc(sl.verse.ref)}</small></div>`:''}`;
 }
-function openStory(id){
-  const slides=S.stories[id]; if(!slides||!slides.length) return;
-  let i=0;
-  const o=document.createElement("div"); o.className="ov story"; o.dataset.who=id;
-  o.innerHTML=`<div class="bars">${slides.map(()=>'<span><i></i></span>').join("")}</div>
-    <div class="sh">${av(id,'xs')}<b>${PEOPLE[id].name}</b>${id==='me'?'':`<button class="xbtn" data-more aria-label="Report or block">${ICON.more}</button>`}<button class="xbtn" data-close aria-label="Close">${ICON.x}</button></div>
-    <div class="stage"></div>
-    <form class="reply">${id==='me'?`<div style="flex:1;opacity:.75;padding:9px 0">${slides.length} in your story${LIVE?"":" · seen by Maya, Eli"}</div>`:`<input id="storyReply" placeholder="Reply to ${PEOPLE[id].short}…" autocomplete="off"><button class="pill solid">Send</button>`}</form>`;
+// Everyone with stories, in the order of the story row (yours first). The viewer plays them
+// one after another, like Instagram: when one person's stories end, the next person's start.
+function storyQueue(){
+  return [...((S.stories.me||[]).length?["me"]:[]), ...Object.keys(S.stories).filter(id=>id!=="me" && S.stories[id].length && !isBlocked(id))];
+}
+function openStory(startId){
+  const queue=storyQueue();
+  let q=queue.indexOf(startId); if(q<0) return;
+  const o=document.createElement("div"); o.className="ov story";
   $("#app").appendChild(o);
-  const stage=o.querySelector(".stage"), bars=o.querySelectorAll(".bars i");
-  const close=()=>{ clearInterval(storyTimer); o.remove(); S.seen[id]=LIVE?Math.max(...slides.map(s=>s.id||0)):true; save(); render(); };
-  api.viewStory(id, slides);
-  let t0, paused=false, elapsed=0;
+  let id=null, slides=[], i=0, elapsed=0, paused=false, bars=[], stage=null;
+  const markSeen=()=>{ if(id) S.seen[id]=LIVE?Math.max(...slides.map(s=>s.id||0)):true; };
+  const close=()=>{ clearInterval(storyTimer); markSeen(); o.remove(); save(); render(); };
+  // show person k's stories; going back starts on their last one
+  function person(k, fromEnd){
+    markSeen();
+    q=k; id=queue[k]; slides=S.stories[id]; i=fromEnd?slides.length-1:0; elapsed=0; paused=false;
+    o.dataset.who=id;
+    o.innerHTML=`<div class="bars">${slides.map(()=>'<span><i></i></span>').join("")}</div>
+      <div class="sh">${av(id,'xs')}<b>${PEOPLE[id].name}</b>${id==='me'?'':`<button class="xbtn" data-more aria-label="Report or block">${ICON.more}</button>`}<button class="xbtn" data-close aria-label="Close">${ICON.x}</button></div>
+      <div class="stage"></div>
+      <form class="reply">${id==='me'?`<div style="flex:1;opacity:.75;padding:9px 0">${slides.length} in your story${LIVE?"":" · seen by Maya, Eli"}</div>`:`<input id="storyReply" placeholder="Reply to ${PEOPLE[id].short}…" autocomplete="off"><button class="pill solid">Send</button>`}</form>`;
+    stage=o.querySelector(".stage"); bars=o.querySelectorAll(".bars i");
+    o.querySelector("[data-close]").onclick=close;
+    const sm=o.querySelector("[data-more]");
+    if(sm) sm.onclick=()=>{ const who=id, cap=(slides[i]||{}).cap||""; close(); personMenu(who,{kind:"story",label:"story",ref:cap}); };
+    const r=o.querySelector("#storyReply");
+    if(r){ r.onfocus=()=>paused=true; r.onblur=()=>paused=false; }
+    o.querySelector(".reply").onsubmit=e=>{ e.preventDefault(); if(r&&r.value.trim()){ S.sent[id]="now"; const m={f:"me",t:"Replied to your story: "+r.value.trim()}; (S.dms[id]=S.dms[id]||[]).push(m); api.message(id,m); save(); toast(`Reply sent to ${PEOPLE[id].short}`); r.value=""; r.blur(); } };
+    api.viewStory(id, slides);
+    show();
+  }
   function show(){
-    if(i>=slides.length) return close();
-    if(i<0) i=0;
+    if(i>=slides.length) return q+1<queue.length ? person(q+1) : close();
+    if(i<0){ if(q>0) return person(q-1,true); i=0; }
+    elapsed=0;
     bars.forEach((b,j)=>b.style.width = j<i?"100%":"0");
     stage.style.cssText = slides[i].img ? "" : artCss(slides[i].art);
     stage.innerHTML = slideHtml(slides[i]) + `<div class="nav"><button aria-label="Previous"></button><button aria-label="Next"></button></div>`;
     const [pv,nx]=stage.querySelectorAll(".nav button");
-    pv.onclick=()=>{ i--; elapsed=0; show(); }; nx.onclick=()=>{ i++; elapsed=0; show(); };
-    elapsed=0;
+    pv.onclick=()=>{ i--; show(); }; nx.onclick=()=>{ i++; show(); };
   }
+  // swipe left or right to skip to the next or previous person
+  let sx=null, sy=null;
+  o.addEventListener("touchstart",e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; },{passive:true});
+  o.addEventListener("touchend",e=>{
+    if(sx===null) return; const t=e.changedTouches[0], dx=t.clientX-sx, dy=t.clientY-sy; sx=null;
+    if(Math.abs(dx)<60 || Math.abs(dx)<Math.abs(dy)*1.5 || e.target.closest("form")) return;
+    if(dx<0) { if(q+1<queue.length) person(q+1); else close(); } else if(q>0) person(q-1);
+  });
   clearInterval(storyTimer);
-  storyTimer=setInterval(()=>{ if(paused) return; elapsed+=50; if(bars[i]) bars[i].style.width=Math.min(100,elapsed/50)+"%"; if(elapsed>=5000){ i++; show(); } },50);
-  o.querySelector("[data-close]").onclick=close;
-  const sm=o.querySelector("[data-more]");
-  if(sm) sm.onclick=()=>{ close(); personMenu(id,{kind:"story",label:"story",ref:(slides[i]||{}).cap||""}); };
-  const r=o.querySelector("#storyReply");
-  if(r){ r.onfocus=()=>paused=true; r.onblur=()=>paused=false; }
-  o.querySelector(".reply").onsubmit=e=>{ e.preventDefault(); if(r&&r.value.trim()){ S.sent[id]="now"; const m={f:"me",t:"Replied to your story: "+r.value.trim()}; (S.dms[id]=S.dms[id]||[]).push(m); api.message(id,m); save(); toast(`Reply sent to ${PEOPLE[id].short}`); r.value=""; r.blur(); } };
-  show();
+  storyTimer=setInterval(()=>{ if(paused||!bars.length) return; elapsed+=50; if(bars[i]) bars[i].style.width=Math.min(100,elapsed/50)+"%"; if(elapsed>=5000){ i++; show(); } },50);
+  person(q);
 }
 async function openSnap(idx, onClose){
   const sn=S.snaps[idx]; if(sn.opened) { toast("A Looking Glass disappears after it's opened"); return; }
