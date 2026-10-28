@@ -343,12 +343,18 @@ label.li:focus-within,label.pill:focus-within{outline:2px solid var(--accent);ou
 .churchchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .churchchip svg{flex:0 0 auto;color:var(--accent)}
 .churchcard,.chhead,.invitecard{display:flex;align-items:center;gap:12px;padding:14px;flex-wrap:wrap}
+.invitecard{flex-direction:column;align-items:stretch}
+.invitecard .row{flex-wrap:wrap}
+.li.req{flex-wrap:wrap}
+.li.req .m{min-width:9em}
+.li.req .acts{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.pill{max-width:100%}
 .churchcard .m,.chhead .m,.invitecard .m{flex:1;min-width:0}
 .churchcard .m b,.churchcard .m small,.chhead .m small,.invitecard .m small{display:block}
 .churchcard small,.chhead small,.invitecard small{color:var(--muted)}
-.chhead h2{margin:0;font-family:var(--display);font-weight:400;font-size:24px;text-wrap:balance}
-.bigcode{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:34px;font-weight:700;letter-spacing:.08em;text-align:center;padding:14px;border-radius:14px;background:var(--soft);color:var(--accent)}
-.bigcode.small{font-size:22px;padding:6px 0;background:none;text-align:left}
+.chhead h2{margin:0;font-family:var(--display);font-weight:400;font-size:22px;line-height:1.15;text-wrap:balance;overflow-wrap:anywhere}
+.bigcode{white-space:nowrap;font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:34px;font-weight:700;letter-spacing:.08em;text-align:center;padding:14px;border-radius:14px;background:var(--soft);color:var(--accent)}
+.bigcode.small{font-size:22px;padding:4px 0;background:none;text-align:left}
 .report{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
 .report:last-child{border-bottom:0}
 .report small{color:var(--muted)}
@@ -1071,7 +1077,7 @@ function renderChats(){
   v.innerHTML=`${churchChip()}<label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="q" placeholder="Search friends and groups" aria-label="Search friends and groups" value="${esc(searchQ)}" autocomplete="off"></label>
     <div id="srch" hidden></div>
     <div id="cbody">${S.requests&&S.requests.length?`<div class="sec-h"><h3>Friend requests</h3><small>${S.requests.length} waiting</small></div>
-    <div class="card list">${S.requests.map(id=>`<div class="li">${av(id,'sm')}<div class="m"><b>${esc(PEOPLE[id].name)}</b><small>@${esc(PEOPLE[id].username||"")}</small></div><button class="pill" data-decline="${id}">Decline</button><button class="pill solid" data-accept="${id}">Accept</button></div>`).join("")}</div>`:""}
+    <div class="card list">${S.requests.map(id=>`<div class="li req">${av(id,'sm')}<div class="m"><b>${esc(PEOPLE[id].name)}</b><small>@${esc(PEOPLE[id].username||"")}</small></div><div class="acts"><button class="pill" data-decline="${id}">Decline</button><button class="pill solid" data-accept="${id}">Accept</button></div></div>`).join("")}</div>`:""}
     <div class="sec-h"><h3>Messages</h3><small>Streaks grow when you both send daily</small></div>
     <div class="card list">${ids.length?ids.map(row).join(""):`<div class="empty">No friends yet. Search above for people from your church and send them a friend request.</div>`}</div>
     <div class="sec-h"><h3>Your groups</h3><button class="pill" id="newGroup">New group</button></div>
@@ -1252,8 +1258,8 @@ function renderChurch(){
       <small>${c.requiresApproval?"New people wait for an admin to approve them.":"Anyone with the code can join right away."}</small></div>
       <div class="row"><button class="pill solid" id="chInvite">Invite people</button>${admin?'<button class="pill" id="chNewCode">New code</button>':""}</div></section>
     ${admin?`<div class="sec-h"><h3>Join requests</h3><small>${pending.length?pending.length+" waiting":"None waiting"}</small></div>
-      <div class="card list">${pending.length?pending.map(m=>`<div class="li">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}</b><small>${handle(m.id)}</small></div>
-        <button class="pill" data-decline-m="${m.id}">Decline</button><button class="pill solid" data-approve-m="${m.id}">Approve</button></div>`).join("")
+      <div class="card list">${pending.length?pending.map(m=>`<div class="li req">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}</b><small>${handle(m.id)}</small></div>
+        <div class="acts"><button class="pill" data-decline-m="${m.id}">Decline</button><button class="pill solid" data-approve-m="${m.id}">Approve</button></div></div>`).join("")
         :`<div class="empty">${c.requiresApproval?"When someone uses your invite code, they'll wait here for approval.":"Approval is off, so people join right away. Turn it on in the settings below."}</div>`}</div>
       <div class="sec-h"><h3>Reports</h3><small>${d.reports.length?d.reports.length+" open":"None open"}</small></div>
       <div class="card list">${d.reports.length?d.reports.map(r=>`<div class="report">
@@ -1269,7 +1275,7 @@ function renderChurch(){
     <div class="card list">${active.map(m=>`<div class="li">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}${m.id==="me"?" (you)":""}</b><small>${m.role==="member"?handle(m.id):ROLE_LABEL[m.role]}</small></div>
       ${canManage(m)?`<button class="ibtn" data-mm="${m.id}" aria-label="Manage ${name(m.id)}">${ICON.more}</button>`:""}</div>`).join("")}</div>
     ${admin&&removed.length?`<div class="sec-h"><h3>Removed</h3><small>Can't rejoin with the code</small></div>
-      <div class="card list">${removed.map(m=>`<div class="li">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}</b></div><button class="pill" data-back-m="${m.id}">Allow back</button></div>`).join("")}</div>`:""}
+      <div class="card list">${removed.map(m=>`<div class="li req">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}</b></div><div class="acts"><button class="pill" data-back-m="${m.id}">Allow back</button></div></div>`).join("")}</div>`:""}
     ${admin?`<div class="sec-h"><h3>Church settings</h3></div>
       <div class="card chsettings">
         <label class="eyebrow" for="csName">Name</label><input class="field" id="csName" maxlength="80" value="${esc(c.name)}">
