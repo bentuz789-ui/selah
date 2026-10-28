@@ -5,7 +5,7 @@ A faith-centered social app: a photo feed, stories, Looking Glass (disappearing 
 Selah runs in two modes:
 
 - **Demo mode** (the default): sample people and posts, saved only on the device. Good for trying the app and showing it to people.
-- **Live mode**: real accounts, with everything stored on a [Supabase](https://supabase.com) server so friends see each other's posts, messages and Looking Glasses. Turn it on with the steps in [Turn on accounts](#turn-on-accounts).
+- **Live mode**: real accounts, with everything stored on a [Supabase](https://supabase.com) server. One app hosts many churches, and each church is its own private space (see [Churches](#churches)). Turn it on with the steps in [Turn on accounts](#turn-on-accounts).
 
 One codebase in `www/` runs three ways:
 
@@ -35,8 +35,8 @@ capacitor.config.json app id, name and splash settings
 supabase/
   migrations/         the database: tables, security rules, notifications, photo storage, push devices
   functions/push/     the server function that sends push notifications
-  seed.sql            starter groups
-tests/security.test.mjs   checks the security rules with three test accounts
+  seed.sql            handy SQL for the app owner (no starter data)
+tests/security.test.mjs   checks the security rules with test accounts in two churches
 tests/push.test.mjs       checks push delivery against fake Apple/Google/browser services (tests/push-mock/)
 ```
 
@@ -73,7 +73,9 @@ Live mode uses Supabase for accounts, the database, photo storage and live updat
 1. In your project, open **SQL Editor** and click **New query**.
 2. Open `supabase/migrations/20261024000000_selah.sql` from this project, copy everything in it, paste it in, and click **Run**. You should see "Success. No rows returned."
 3. Do the same with `supabase/migrations/20261025000000_push.sql` (push notifications).
-4. Make another new query with the contents of `supabase/seed.sql` and run it. This adds five starter groups. Edit the names first if you like, or rename them later in **Table Editor › groups**.
+4. Do the same with `supabase/migrations/20261028000000_churches.sql` (churches).
+
+Run them in that order. Each church creates its own groups in the app, so there's no starter data to add.
 
 If you're comfortable with a terminal, you can do the same with `npx supabase login`, `npx supabase link`, then `npx supabase db push`.
 
@@ -100,34 +102,52 @@ Supabase asks new people to confirm their email by default. Keep that on. Its bu
    ```
 
    The publishable key is meant to be in the app. The security rules in the database decide what each person can see. **Never** put the `service_role` or secret key in the app.
-3. Run `npm start` and open http://localhost:8080. You'll see the welcome screen. Create an account, then create a second one in a private window and add each other as friends.
+3. Run `npm start` and open http://localhost:8080. You'll see the welcome screen. Create an account and start your church, then open its invite link in a private window and create a second account to try joining.
 4. Run `npm run sync` to copy the change into the phone apps.
 
 ### What live mode includes
 
 - Sign up with name, username, email and password; must confirm they're 13 or older and agree to the community guidelines. Log in, log out, reset a forgotten password by email, and delete the account from Settings.
-- Friend requests. Posts, stories, prayer requests and messages are shared with friends; group posts are visible to everyone signed in.
+- Churches: each church's feed, prayer wall, groups and events are private to its members. People join with an invite code or link, and church admins manage members and reports in the app. See [Churches](#churches).
+- Friend requests, with anyone from one of your churches. Stories, messages and Looking Glasses are shared with friends, and friendships carry across churches.
 - Photos for posts, stories, profile pictures and Looking Glasses are stored in Supabase Storage. A Looking Glass's photo and words can only be opened once by the person it was sent to, then they're deleted.
 - Live updates: new messages, friend requests, likes, comments and prayers arrive while the app is open, with banners and the bell count. With [push notifications](#turn-on-push-notifications) set up, they also arrive when the app is closed.
-- Anyone can create a group and becomes its admin. Admins can add events.
+- Any church member can create a group in their church and becomes its admin. Group admins and church admins can add events.
 - Report and block work on the server: blocked people can't see your things, find you, or message you, and blocking ends the friendship.
 - Your Bible highlights, reading progress, streak and settings are saved to your account, so they follow you to a new phone.
 
+### Churches
+
+Selah hosts many churches in one app. Each church is its own private space:
+
+| Belongs to one church (only its members see it) | Personal (crosses churches) |
+|---|---|
+| The feed, prayer wall, groups and events | Friends, messages, stories, Looking Glasses |
+| Reports about posts, comments and prayer requests | Profile, Bible highlights, reading streak |
+
+**Starting a church.** Anyone can start one. New accounts see a "find your church" screen with **Start a church**. The person who starts it is the **owner**. Each church gets an 8-character invite code, like `7KQ2-MX4P`, and a link (`your web address?join=CODE`).
+
+**Joining.** People enter the code after signing up, or open the invite link. If the church has **Approve new members** on (the default), they wait until an admin approves them. Admins get a notification for each request. People can belong to several churches and switch with the church button at the top of Home.
+
+**Church page.** Profile › your church › **Manage** (or the church button › **Church page**). Admins can:
+
+- approve or decline join requests
+- handle reports: remove the post, comment or prayer request, remove the person from the church, or mark it as needing no action
+- make members admins, or remove them from the church (removed people can't rejoin with the code until an admin allows them back)
+- make a new invite code (old codes and links stop working), rename the church, and turn approval on or off
+
+Only the owner can make someone else the owner, change another admin's role, or delete the church. The owner can't leave until they've handed the church to someone else.
+
+**Upgrading a project that already had accounts.** When you run the churches file, everyone who already had an account is put into one church named "My Church", owned by whoever signed up first, and existing posts, prayer requests and groups move into it. Rename it on the church page.
+
 ### Moderating
 
-Reports arrive in **Table Editor › reports**, with the reason, what was reported and who reported it. To act on one:
+Church admins handle reports about their church's posts, comments and prayer requests on the church page. Reports about messages, stories, Looking Glasses and whole accounts aren't tied to a church, so they come to you, the app owner, in **Table Editor › reports** (the ones where `church_id` is empty). To act on one:
 
 - **Remove content**: delete the row in `posts`, `comments`, `stories` or `prayers` (the report's `post_id`, `comment_id` or `prayer_id` tells you which).
-- **Suspend someone**: in **Authentication › Users**, find them and choose **Ban user**.
+- **Suspend someone everywhere**: in **Authentication › Users**, find them and choose **Ban user**.
+- **Remove a church that misuses the app**: see the SQL in `supabase/seed.sql`.
 - Set the report's `status` to `reviewed` or `action_taken` so your team knows it's handled.
-
-To make someone an admin of a group (so they can add events), run this in the SQL Editor:
-
-```sql
-update group_members set role = 'admin'
-where group_id = (select id from groups where name = 'Youth Group')
-  and user_id = (select id from profiles where username = 'their_username');
-```
 
 ### Cost
 
@@ -139,7 +159,7 @@ With [Docker](https://www.docker.com/products/docker-desktop/) installed you can
 
 ```bash
 npx supabase start          # first run downloads a few GB
-node tests/security.test.mjs   # 33 checks that people can only see what they should
+node tests/security.test.mjs   # 68 checks that people only see what they should, and nothing crosses between churches
 ```
 
 `npx supabase start` prints a local API URL and anon key; put those in `www/config.js` to try the app against your local copy. Put your real project's values back before you ship.
@@ -276,7 +296,7 @@ To change the app icon or splash screen, replace the images in `resources/` and 
 
 1. **Turn on accounts** with the steps above, including your own email provider.
 2. **Turn on push notifications** with the steps above.
-3. **Someone to review reports.** Apple and Google require that reports reach a person who acts on them. Decide who on your team checks the `reports` table, and how often. Because many users may be teens in youth groups, also think about parental involvement for younger members.
+3. **Someone to review reports.** Apple and Google require that reports reach a person who acts on them. Each church's admins handle reports inside their church; you handle the rest (messages, stories, Looking Glasses, accounts) and keep an eye on churches themselves. Because many users may be teens in youth groups, also think about parental involvement for younger members.
 4. **A privacy policy and terms.** Both stores require a privacy policy link. Account deletion is already built in (Settings › Delete account), and the community guidelines are in the app.
 5. **Developer accounts.** Apple Developer Program ($99/year) and Google Play Console ($25 one-time).
 6. **More Bible translations.** The app includes the complete KJV, BSB and ASV, which are all public domain. Modern translations like NIV, ESV or NLT need a license from their publishers, for example through API.Bible.

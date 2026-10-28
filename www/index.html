@@ -338,6 +338,39 @@ button:disabled{opacity:.6;cursor:default}
 label.li,label.pill{cursor:pointer;position:relative}
 label.li:focus-within,label.pill:focus-within{outline:2px solid var(--accent);outline-offset:2px}
 
+/* churches */
+.churchchip{align-self:flex-start;display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-weight:600;max-width:100%}
+.churchchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.churchchip svg{flex:0 0 auto;color:var(--accent)}
+.churchcard,.chhead,.invitecard{display:flex;align-items:center;gap:12px;padding:14px;flex-wrap:wrap}
+.churchcard .m,.chhead .m,.invitecard .m{flex:1;min-width:0}
+.churchcard .m b,.churchcard .m small,.chhead .m small,.invitecard .m small{display:block}
+.churchcard small,.chhead small,.invitecard small{color:var(--muted)}
+.chhead h2{margin:0;font-family:var(--display);font-weight:400;font-size:24px;text-wrap:balance}
+.bigcode{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:34px;font-weight:700;letter-spacing:.08em;text-align:center;padding:14px;border-radius:14px;background:var(--soft);color:var(--accent)}
+.bigcode.small{font-size:22px;padding:6px 0;background:none;text-align:left}
+.report{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.report:last-child{border-bottom:0}
+.report small{color:var(--muted)}
+.report .rep-ref{margin:0}
+.reason{font-size:12px;font-weight:700;color:var(--like);background:var(--rose);padding:3px 9px;border-radius:999px}
+.repnote{margin:0;font-size:14px;color:var(--muted)}
+.chsettings{padding:14px;display:flex;flex-direction:column;gap:8px}
+.chsettings .setrow{padding:8px 0;border:0}
+.li[disabled]{opacity:.65;cursor:default}
+.authnote{margin:0;color:var(--muted);text-align:center}
+.waitcard{padding:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.waitcard small{color:var(--muted)}
+.ordiv{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.ordiv::before,.ordiv::after{content:"";flex:1;height:1px;background:var(--line)}
+.churchpreview{display:flex;align-items:center;gap:12px;padding:14px}
+.churchpreview .m b,.churchpreview .m small{display:block}
+.churchpreview small{color:var(--muted)}
+.joinbox,.createbox{display:flex;flex-direction:column;gap:12px}
+.joinbox .linkish{align-self:center}
+.codefield{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;font-size:18px}
+.approvalrow{padding:6px 0;border:0}
+
 /* direct messages */
 .thread{background:var(--bg)}
 .thread .th{display:flex;align-items:center;gap:10px;padding-block:8px;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -442,6 +475,7 @@ const SEED = () => ({
   ],
   notifPrefs:{like:true,comment:true,message:true},
   blocked:{}, reports:[], hiddenPosts:{},
+  churches:[{id:"c1",name:"Riverside Church",city:"Springfield",requiresApproval:true,role:"owner",status:"active"}], church:"c1",
   tab:"home", read:{tr:"kjv",b:18,c:23}, done:{}, streak:12, readDay:"", planDay:1,
   highlights:{"Psalm 23:1":{c:"gold",t:"The LORD is my shepherd; I shall not want.",tr:"KJV"},"Philippians 4:13":{c:"sky",t:"I can do all things through Christ which strengtheneth me.",tr:"KJV"}},
   stories:{
@@ -498,6 +532,7 @@ if(!S.profile) S.profile = SEED().profile;
 if(!S.notifs) S.notifs = SEED().notifs;
 if(!S.notifPrefs) S.notifPrefs = {like:true,comment:true,message:true};
 if(!S.blocked){ S.blocked={}; S.reports=[]; S.hiddenPosts={}; }
+if(!S.churches){ S.churches=SEED().churches; S.church="c1"; }
 if(!S.read){ S.read={tr:"kjv",b:18,c:23}; S.done={}; S.readDay=""; }
 for(const k in S.highlights){ if(typeof S.highlights[k]==="string") S.highlights[k]={c:S.highlights[k],t:(SEED().highlights[k]||{}).t||"",tr:"KJV"}; }
 if(LIVE) S = liveBlankState();
@@ -506,7 +541,18 @@ const save = () => { if(LIVE) return liveSave(); try { localStorage.setItem("sel
 const api = { react(){}, comment(){}, createPost(){}, addPrayer(){}, markPrayed(){}, deletePost(){}, deleteComment(){}, deletePrayer(){},
   send(){}, message(){}, markRead(){}, addStory(){}, glassViewed(){}, joinGroup(){}, rsvp(){}, createGroup(){}, addEvent(){},
   requestFriend(){}, respondFriend(){}, block(){}, unblock(){}, report(){}, readNotifs(){}, clearNotifs(){}, viewStory(){},
-  saveProfile(){ return Promise.resolve(true); }, openGlass:null, searchPeople:null };
+  saveProfile(){ return Promise.resolve(true); }, openGlass:null, searchPeople:null,
+  // churches (demo: a sample church kept in memory)
+  churchCode(){ return demoChurch().code; }, newChurchCode(){ const c=demoChurch(); c.code=Math.random().toString(36).slice(2,10).toUpperCase().replace(/[01IO]/g,"7"); return c.code; },
+  loadChurch(){ return demoChurch(); },
+  approveMember(cid,id){ demoMember(id).status="active"; return true; }, declineMember(cid,id){ demoDrop(id); return true; },
+  setRole(cid,id,role){ if(role==="owner"){ demoMember("me").role="admin"; currentChurch().role="admin"; } demoMember(id).role=role; return true; },
+  removeMember(cid,id){ Object.assign(demoMember(id),{status:"removed",role:"member"}); return true; }, allowBack(cid,id){ demoDrop(id); return true; },
+  resolveReport(rid){ const c=demoChurch(); c.reports=c.reports.filter(r=>r.id!==rid); return true; },
+  removeReported(rep){ if(rep.postId) S.posts=S.posts.filter(p=>p.id!==rep.postId); return true; },
+  saveChurch(cid,f){ Object.assign(currentChurch(),f); return true; },
+  leaveChurch(){ toast("The sample church can't be left in the demo"); return false; }, deleteChurch(){ toast("The sample church can't be deleted in the demo"); return false; },
+  switchChurch(){} };
 
 // ---------- helpers ----------
 const $ = s => document.querySelector(s);
@@ -525,6 +571,7 @@ const ICON = {
   x:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
   bell:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9M10 20a2.2 2.2 0 0 0 4 0"/></svg>',
+  church:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v5M9.5 4.5h5M4 21V12l8-5 8 5v9M10 21v-5h4v5M2.5 21h19"/></svg>',
   more:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   flag:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h12l-2.5 4.5L17 13H5"/></svg>',
   block:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
@@ -561,10 +608,10 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeCreate(); });
 
 function render(){
   if(LIVE && !liveReady){ $("#view").innerHTML=`<p class="loading" style="text-align:center;padding-block:48px">Loading your feed…</p>`; return; }
-  const cur = S.tab==="group" ? "chats" : S.tab;
+  const cur = S.tab==="group" ? "chats" : S.tab==="church" ? "me" : S.tab;
   document.querySelectorAll(".tab").forEach(b=>{ if(b.dataset.tab===cur) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   $("#msgDot").hidden = !hasNewMessages();
-  ({home:renderHome,bible:renderBible,snap:renderSnap,chats:renderChats,me:renderMe,group:renderGroup,notifs:renderNotifs})[S.tab]();
+  ({home:renderHome,bible:renderBible,snap:renderSnap,chats:renderChats,me:renderMe,group:renderGroup,notifs:renderNotifs,church:renderChurch})[S.tab]();
   renderSelbar();
   updateBell();
 }
@@ -601,7 +648,7 @@ function postHtml(p){
 }
 function renderHome(){
   const v = $("#view");
-  v.innerHTML = `${storyRow()}
+  v.innerHTML = `${churchChip()}${storyRow()}
     <section class="card votd">
       <div class="eyebrow">Verse of the day</div>
       <blockquote>${esc(VOTD.text)}</blockquote>
@@ -616,6 +663,7 @@ function renderHome(){
   $("#votdStory").onclick = ()=>{ const sl={art:VOTD.art,verse:{text:VOTD.text,ref:VOTD.ref}}; S.stories.me.push(sl); api.addStory(sl); save(); toast("Added to your story"); render(); };
   $("#votdRead").onclick = ()=>{ S.read.b=22; S.read.c=40; jumpVerse=31; go("bible"); };
   $("#fakeComposer").onclick = ()=>openComposer();
+  bindChurchChip();
   bindPosts(v);
 }
 function bindPosts(root){
@@ -1020,7 +1068,7 @@ function renderChats(){
   const groupRow=g=>`<button class="li" data-g="${g.id}"><div class="gthumb" style="${artCss(g.art)}"></div><div class="m"><b>${esc(g.name)}</b><small>${g.members} members · ${esc(g.meets)}</small></div>${g.joined?'':'<span class="pill">View</span>'}</button>`;
   const mine=S.groups.filter(g=>g.joined), other=S.groups.filter(g=>!g.joined);
   const v=$("#view");
-  v.innerHTML=`<label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="q" placeholder="Search friends and groups" aria-label="Search friends and groups" value="${esc(searchQ)}" autocomplete="off"></label>
+  v.innerHTML=`${churchChip()}<label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input type="search" id="q" placeholder="Search friends and groups" aria-label="Search friends and groups" value="${esc(searchQ)}" autocomplete="off"></label>
     <div id="srch" hidden></div>
     <div id="cbody">${S.requests&&S.requests.length?`<div class="sec-h"><h3>Friend requests</h3><small>${S.requests.length} waiting</small></div>
     <div class="card list">${S.requests.map(id=>`<div class="li">${av(id,'sm')}<div class="m"><b>${esc(PEOPLE[id].name)}</b><small>@${esc(PEOPLE[id].username||"")}</small></div><button class="pill" data-decline="${id}">Decline</button><button class="pill solid" data-accept="${id}">Accept</button></div>`).join("")}</div>`:""}
@@ -1028,11 +1076,12 @@ function renderChats(){
     <div class="card list">${ids.length?ids.map(row).join(""):`<div class="empty">No friends yet. Search above for people from your church and send them a friend request.</div>`}</div>
     <div class="sec-h"><h3>Your groups</h3><button class="pill" id="newGroup">New group</button></div>
     <div class="card list">${mine.length?mine.map(groupRow).join(""):'<div class="empty">Join a group below to see it here.</div>'}</div>
-    ${other.length?`<div class="sec-h"><h3>Discover groups</h3><small>${LIVE?"Open to everyone":"At Riverside Church"}</small></div>
+    ${other.length?`<div class="sec-h"><h3>Discover groups</h3><small>At ${esc((currentChurch()||{name:"your church"}).name)}</small></div>
     <div class="card list">${other.map(groupRow).join("")}</div>`:''}
     <div class="sec-h"><h3>Prayer wall</h3><button class="pill" id="addPrayer">Add request</button></div>
     <div class="card">${S.prayers.map((p,i)=>isBlocked(p.by)||p.hidden?"":`<div class="prayer"><div class="row">${av(p.by,'xs')}<b style="flex:1">${PEOPLE[p.by].name}</b><button class="ibtn" data-pm="${i}" aria-label="More options for this prayer request">${ICON.more}</button></div><p>${esc(p.t)}</p>
       <div class="row"><button class="pill ${p.me?'solid':''}" data-pi="${i}">${p.me?'Prayed':'I prayed'} · ${p.n}</button></div></div>`).join("")}</div></div>`;
+  bindChurchChip();
   $("#q").oninput=e=>{ searchQ=e.target.value; runSearch(); };
   runSearch();
   v.querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>openThread(b.dataset.id));
@@ -1105,6 +1154,165 @@ function openNewEvent(g){
 function eventFields(when){
   return {at:+when, m:when.toLocaleDateString("en-US",{month:"short"}), d:when.getDate(),
     time:when.toLocaleDateString("en-US",{weekday:"short"})+" "+when.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})};
+}
+
+// ---------- CHURCHES ----------
+const currentChurch = () => (S.churches||[]).find(c=>c.id===S.church && c.status==="active") || null;
+const isChurchAdmin = () => { const c=currentChurch(); return !!c && (c.role==="admin" || c.role==="owner"); };
+const fmtCode = code => code ? code.slice(0,4)+"-"+code.slice(4) : "";
+const ROLE_LABEL = {owner:"Owner", admin:"Admin", member:"Member"};
+let demoChurchState=null;
+function demoChurch(){
+  if(!demoChurchState) demoChurchState={ code:"RVSD7KQ2",
+    members:[{id:"me",role:"owner",status:"active"},{id:"maya",role:"admin",status:"active"},{id:"jon",role:"member",status:"active"},{id:"grace",role:"member",status:"active"},
+      {id:"eli",role:"member",status:"active"},{id:"ruth",role:"member",status:"active"},{id:"sam",role:"member",status:"active"},{id:"noah",role:"member",status:"active"},{id:"leah",role:"member",status:"pending"},{id:"caleb",role:"member",status:"pending"}],
+    reports:[{id:901,kind:"comment",reason:"bully",details:"This was mean to a new member",content:"Nobody wants you here",who:"noah",commentId:1,time:Date.now()-5*3600e3}] };
+  return demoChurchState;
+}
+const demoMember = id => demoChurch().members.find(m=>m.id===id);
+const demoDrop = id => { const c=demoChurch(); c.members=c.members.filter(m=>m.id!==id); };
+
+// The button at the top of Home and Friends: which church you're looking at.
+function churchChip(){
+  const c=currentChurch(); if(!c) return "";
+  return `<button class="churchchip" id="churchChip" aria-label="${esc(c.name)}: switch church, invite people or open the church page">${ICON.church}<span>${esc(c.name)}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>`;
+}
+function bindChurchChip(){ const b=$("#churchChip"); if(b) b.onclick=openChurchSheet; }
+function openChurchSheet(){
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>Your churches</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <div class="card list">${S.churches.map(c=>`<button class="li" data-ch="${c.id}" ${c.status!=="active"?"disabled":""}><span class="pickicon">${ICON.church}</span><div class="m"><b>${esc(c.name)}</b>
+      <small>${c.status==="pending"?"Waiting for an admin to approve you":ROLE_LABEL[c.role]+(c.city?" · "+esc(c.city):"")}</small></div>${c.id===S.church?'<span class="fire" style="color:var(--accent)">Viewing</span>':""}</button>`).join("")}</div>
+    <div class="card list">
+      <button class="li" data-a="invite"><div class="m"><b>Invite people</b><small>Share ${esc(currentChurch().name)}'s invite code or link</small></div></button>
+      <button class="li" data-a="page"><div class="m"><b>Church page</b><small>${isChurchAdmin()?"Members, join requests, reports and settings":"See who's here"}</small></div></button>
+      <button class="li" data-a="join"><div class="m"><b>Join another church</b><small>With an invite code</small></div></button>
+      <button class="li" data-a="start"><div class="m"><b>Start a church</b><small>For pastors and church leaders</small></div></button>
+    </div>`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  o.querySelectorAll("[data-ch]").forEach(b=>b.onclick=async()=>{ o.remove(); if(b.dataset.ch===S.church) return; S.church=b.dataset.ch; save(); await api.switchChurch(b.dataset.ch); toast(`Now viewing ${currentChurch().name}`); });
+  o.querySelector('[data-a="invite"]').onclick=()=>{ o.remove(); openInvite(currentChurch()); };
+  o.querySelector('[data-a="page"]').onclick=()=>{ o.remove(); openChurchPage(); };
+  o.querySelector('[data-a="join"]').onclick=()=>{ o.remove(); if(!LIVE) return toast("Joining churches works once accounts are turned on (README › Turn on accounts)");
+    const s2=sheet(`<div class="row" style="justify-content:space-between"><h3>Join a church</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div><div class="joinbox"></div>`);
+    s2.querySelector("[data-x]").onclick=()=>s2.remove(); churchJoinFlow(s2.querySelector(".joinbox"),"",()=>s2.remove()); };
+  o.querySelector('[data-a="start"]').onclick=()=>{ o.remove(); if(!LIVE) return toast("Starting churches works once accounts are turned on (README › Turn on accounts)");
+    const s2=sheet(`<div class="row" style="justify-content:space-between"><h3>Start a church</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div><div class="createbox"></div>`);
+    s2.querySelector("[data-x]").onclick=()=>s2.remove(); churchCreateFlow(s2.querySelector(".createbox"),()=>s2.remove()); };
+}
+function inviteLink(code){
+  const base=(window.SELAH_CONFIG&&SELAH_CONFIG.siteUrl) || (location.protocol.startsWith("http") ? location.origin+location.pathname : "");
+  return base ? base.replace(/[?#].*$/,"")+"?join="+code : "";
+}
+async function openInvite(c, fresh){
+  if(!c) return;
+  const code=await api.churchCode(c.id); if(!code) return;
+  const link=inviteLink(code);
+  const o=sheet(`<div class="row" style="justify-content:space-between"><h3>${fresh?"Invite your church":"Invite people"}</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div>
+    <p style="margin:0;color:var(--muted)">${fresh?`${esc(c.name)} is ready. `:""}Share this code or link with people from ${esc(c.name)}. They enter the code after signing up.
+      ${c.requiresApproval?" You'll approve each person on the church page.":" Anyone with it can join right away."}</p>
+    <div class="bigcode" aria-label="Invite code ${fmtCode(code).split("").join(" ")}">${fmtCode(code)}</div>
+    ${link?`<input class="field" id="invLink" value="${esc(link)}" readonly aria-label="Invite link">`:""}
+    <div class="row"><button class="pill solid" id="invShare" style="flex:1;justify-content:center;padding:12px">${navigator.share?"Share invite":"Copy invite link"}</button><button class="pill" id="invCode" style="flex:1;justify-content:center;padding:12px">Copy code</button></div>
+    ${/localhost|127\.0\.0\.1/.test(link)?`<p class="hint">This link only works on your computer. Once the app is online, set its web address as siteUrl in config.js and invite links will work anywhere.</p>`:""}`);
+  o.querySelector("[data-x]").onclick=()=>o.remove();
+  const text=`Join ${c.name} on Selah with the code ${fmtCode(code)}`;
+  const copy=(t,msg)=>{ try{ navigator.clipboard.writeText(t).then(()=>toast(msg),()=>{ const i=o.querySelector("#invLink"); if(i){ i.select(); } toast("Select the link and copy it"); }); }catch(e){ toast("Select the link and copy it"); } };
+  o.querySelector("#invCode").onclick=()=>copy(code,"Code copied");
+  o.querySelector("#invShare").onclick=async()=>{
+    if(navigator.share){ try{ await navigator.share({title:`Join ${c.name} on Selah`, text, url:link||undefined}); return; }catch(e){ if(e&&e.name==="AbortError") return; } }
+    copy(link?`${text}: ${link}`:text, link?"Invite link copied":"Invite copied");
+  };
+}
+
+// ---------- CHURCH PAGE ----------
+let churchData=null, churchDataFor=null;
+function openChurchPage(){ churchData=null; go("church"); }
+function refreshChurch(){ churchData=null; render(); }
+const KIND_LABEL = {post:"Post",comment:"Comment",prayer:"Prayer request",story:"Story",glass:"Looking Glass",message:"Message",account:"Account"};
+function renderChurch(){
+  const c=currentChurch(), v=$("#view");
+  if(!c){ S.tab="home"; return renderHome(); }
+  const back=`<button class="back" id="chBack">${ICON.back}Profile</button>`;
+  if(!churchData || churchDataFor!==c.id){
+    v.innerHTML=back+`<p class="loading">Loading ${esc(c.name)}…</p>`; $("#chBack").onclick=()=>go("me");
+    Promise.resolve(api.loadChurch(c.id)).then(d=>{ if(!d) return; churchData=d; churchDataFor=c.id; if(S.tab==="church") render(); });
+    return;
+  }
+  const d=churchData, admin=isChurchAdmin(), owner=c.role==="owner";
+  const order={owner:0,admin:1,member:2};
+  const active=d.members.filter(m=>m.status==="active").sort((a,b)=>order[a.role]-order[b.role]||(PEOPLE[a.id]||{name:""}).name.localeCompare((PEOPLE[b.id]||{name:""}).name));
+  const pending=d.members.filter(m=>m.status==="pending"), removed=d.members.filter(m=>m.status==="removed");
+  const name=id=>esc((PEOPLE[id]||{name:"Selah member"}).name);
+  const handle=id=>{ const p=PEOPLE[id]||{}; return esc(p.username?"@"+p.username:(p.bio||"")); };
+  const canManage=m=>admin && m.id!=="me" && m.role!=="owner" && (m.role!=="admin" || owner);
+  v.innerHTML=back+`
+    <section class="card chhead"><span class="pickicon">${ICON.church}</span><div class="m"><h2>${esc(c.name)}</h2>
+      <small>${c.city?esc(c.city)+" · ":""}${active.length} member${active.length===1?"":"s"} · You're ${owner?"the owner":c.role==="admin"?"an admin":"a member"}</small></div></section>
+    <section class="card invitecard"><div class="m"><div class="eyebrow">Invite code</div><div class="bigcode small">${fmtCode(d.code)}</div>
+      <small>${c.requiresApproval?"New people wait for an admin to approve them.":"Anyone with the code can join right away."}</small></div>
+      <div class="row"><button class="pill solid" id="chInvite">Invite people</button>${admin?'<button class="pill" id="chNewCode">New code</button>':""}</div></section>
+    ${admin?`<div class="sec-h"><h3>Join requests</h3><small>${pending.length?pending.length+" waiting":"None waiting"}</small></div>
+      <div class="card list">${pending.length?pending.map(m=>`<div class="li">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}</b><small>${handle(m.id)}</small></div>
+        <button class="pill" data-decline-m="${m.id}">Decline</button><button class="pill solid" data-approve-m="${m.id}">Approve</button></div>`).join("")
+        :`<div class="empty">${c.requiresApproval?"When someone uses your invite code, they'll wait here for approval.":"Approval is off, so people join right away. Turn it on in the settings below."}</div>`}</div>
+      <div class="sec-h"><h3>Reports</h3><small>${d.reports.length?d.reports.length+" open":"None open"}</small></div>
+      <div class="card list">${d.reports.length?d.reports.map(r=>`<div class="report">
+          <div class="row"><span class="reason">${esc((REPORT_REASONS.find(x=>x[0]===r.reason)||[0,"Report"])[1])}</span><small>${KIND_LABEL[r.kind]||"Content"}${r.who?" by "+name(r.who):""} · ${ago(r.time)}</small></div>
+          ${r.content?`<blockquote class="rep-ref">${esc(clip(r.content,220))}</blockquote>`:""}
+          ${r.details?`<p class="repnote">Reporter's note: “${esc(r.details)}”</p>`:""}
+          ${r.reason==="selfharm"?`<p class="repnote"><b>Someone may be in danger.</b> Reach out to them or their family directly. In an emergency, call 911.</p>`:""}
+          <div class="row">${r.postId||r.commentId||r.prayerId?`<button class="pill dangerline" data-rr="${r.id}">Remove ${(KIND_LABEL[r.kind]||"it").toLowerCase()}</button>`:""}
+            ${r.who&&r.who!=="me"&&canManage(d.members.find(m=>m.id===r.who)||{id:r.who,role:"member"})?`<button class="pill dangerline" data-rp="${r.id}">Remove ${esc((PEOPLE[r.who]||{short:"them"}).short)} from church</button>`:""}
+            <button class="pill" data-rk="${r.id}">No action needed</button></div></div>`).join("")
+          :`<div class="empty">No open reports. When someone reports a post, comment or prayer request in ${esc(c.name)}, it shows up here.</div>`}</div>`:""}
+    <div class="sec-h"><h3>Members</h3><small>${active.length}</small></div>
+    <div class="card list">${active.map(m=>`<div class="li">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}${m.id==="me"?" (you)":""}</b><small>${m.role==="member"?handle(m.id):ROLE_LABEL[m.role]}</small></div>
+      ${canManage(m)?`<button class="ibtn" data-mm="${m.id}" aria-label="Manage ${name(m.id)}">${ICON.more}</button>`:""}</div>`).join("")}</div>
+    ${admin&&removed.length?`<div class="sec-h"><h3>Removed</h3><small>Can't rejoin with the code</small></div>
+      <div class="card list">${removed.map(m=>`<div class="li">${av(m.id,'sm')}<div class="m"><b>${name(m.id)}</b></div><button class="pill" data-back-m="${m.id}">Allow back</button></div>`).join("")}</div>`:""}
+    ${admin?`<div class="sec-h"><h3>Church settings</h3></div>
+      <div class="card chsettings">
+        <label class="eyebrow" for="csName">Name</label><input class="field" id="csName" maxlength="80" value="${esc(c.name)}">
+        <label class="eyebrow" for="csCity">City</label><input class="field" id="csCity" maxlength="80" value="${esc(c.city||"")}" placeholder="Optional">
+        <label class="setrow" for="csApproval"><div class="m"><b>Approve new members</b><small>People with the code wait until an admin lets them in</small></div><input type="checkbox" role="switch" class="switch" id="csApproval" ${c.requiresApproval?"checked":""}></label>
+        <button class="pill solid" id="csSave" style="align-self:flex-start">Save</button></div>`:""}
+    <div class="card"><div class="setrow"><div class="m"><b>${owner?"Delete church":"Leave church"}</b><small>${owner?"Removes the church with all its posts, prayer requests, groups and events. To leave instead, make someone else the owner first.":"You'll stop seeing its posts, prayer wall and groups. Your friends stay your friends."}</small></div>
+      <button class="pill dangerline" id="${owner?"csDelete":"csLeave"}">${owner?"Delete":"Leave"}</button></div></div>`;
+
+  const act=async(fn,msg)=>{ const ok=await fn(); if(ok){ if(msg) toast(msg); refreshChurch(); } };
+  $("#chBack").onclick=()=>go("me");
+  $("#chInvite").onclick=()=>openInvite(c);
+  const nc=$("#chNewCode"); if(nc) nc.onclick=()=>confirmSheet("Make a new invite code?","The current code and links stop working. People who already joined stay in the church.","New code",()=>act(()=>api.newChurchCode(c.id),"New invite code made"));
+  v.querySelectorAll("[data-approve-m]").forEach(b=>b.onclick=()=>act(()=>api.approveMember(c.id,b.dataset.approveM),`${(PEOPLE[b.dataset.approveM]||{short:"They"}).short} is in`));
+  v.querySelectorAll("[data-decline-m]").forEach(b=>b.onclick=()=>act(()=>api.declineMember(c.id,b.dataset.declineM),"Request declined"));
+  v.querySelectorAll("[data-back-m]").forEach(b=>b.onclick=()=>act(()=>api.allowBack(c.id,b.dataset.backM),"They can rejoin with the invite code"));
+  const findRep=id=>d.reports.find(r=>String(r.id)===String(id));
+  v.querySelectorAll("[data-rk]").forEach(b=>b.onclick=()=>act(()=>api.resolveReport(+b.dataset.rk,"reviewed"),"Marked as reviewed"));
+  v.querySelectorAll("[data-rr]").forEach(b=>b.onclick=()=>{ const r=findRep(b.dataset.rr);
+    confirmSheet(`Remove this ${(KIND_LABEL[r.kind]||"content").toLowerCase()}?`,"It will be deleted for everyone. This can't be undone.","Remove",()=>act(async()=>(await api.removeReported(r)) && api.resolveReport(r.id,"action_taken"),"Removed")); });
+  v.querySelectorAll("[data-rp]").forEach(b=>b.onclick=()=>{ const r=findRep(b.dataset.rp);
+    confirmSheet(`Remove ${name(r.who)} from ${esc(c.name)}?`,"They'll lose access to the church's posts, prayer wall and groups, and can't rejoin with the invite code. You can allow them back later.","Remove",()=>act(async()=>(await api.removeMember(c.id,r.who)) && api.resolveReport(r.id,"action_taken"),"Removed from the church")); });
+  v.querySelectorAll("[data-mm]").forEach(b=>b.onclick=()=>{
+    const m=d.members.find(x=>x.id===b.dataset.mm), nm=(PEOPLE[m.id]||{name:"this person"}).name, items=[];
+    if(m.role==="member") items.push({icon:ICON.church,label:"Make admin",sub:"Can approve members, handle reports and add events",fn:()=>act(()=>api.setRole(c.id,m.id,"admin"),`${nm} is now an admin`)});
+    if(m.role==="admin") items.push({icon:ICON.church,label:"Remove admin role",sub:"They stay a member",fn:()=>act(()=>api.setRole(c.id,m.id,"member"),`${nm} is a member again`)});
+    if(owner) items.push({icon:ICON.church,label:"Make owner",sub:"Hand the church over. You'll become an admin.",fn:()=>confirmSheet(`Make ${esc(nm)} the owner?`,`They'll be able to delete ${esc(c.name)} and change everyone's role. You'll become an admin.`,"Make owner",async()=>{ if(await api.setRole(c.id,m.id,"owner")){ toast(`${nm} is now the owner`); await api.switchChurch(c.id); openChurchPage(); } })});
+    items.push({icon:ICON.block,label:`Remove from ${c.name}`,sub:"They can't rejoin with the code",danger:true,fn:()=>confirmSheet(`Remove ${esc(nm)}?`,"They'll lose access to the church's posts, prayer wall and groups. You can allow them back later.","Remove",()=>act(()=>api.removeMember(c.id,m.id),"Removed from the church"))});
+    actionSheet(nm,items);
+  });
+  const sv=$("#csSave"); if(sv) sv.onclick=async()=>{
+    const f={name:$("#csName").value.trim(),city:$("#csCity").value.trim(),requiresApproval:$("#csApproval").checked};
+    if(f.name.length<2) return toast("Enter the church's name");
+    if(await api.saveChurch(c.id,f)){ Object.assign(c,f); save(); toast("Church settings saved"); refreshChurch(); }
+  };
+  const lv=$("#csLeave"); if(lv) lv.onclick=()=>confirmSheet(`Leave ${esc(c.name)}?`,"You can rejoin later with an invite code.","Leave",async()=>{ if(await api.leaveChurch(c.id)) toast(`You left ${c.name}`); });
+  const dl=$("#csDelete"); if(dl) dl.onclick=()=>{
+    const o=sheet(`<h3>Delete ${esc(c.name)}?</h3><p style="margin:0;color:var(--muted)">This deletes the church with all its posts, prayer requests, groups and events for everyone. It can't be undone.</p>
+      <label class="eyebrow" for="dcName">Type the church's name to confirm</label><input class="field" id="dcName" autocomplete="off">
+      <div class="row"><button class="pill" data-no style="flex:1;justify-content:center;padding:12px">Cancel</button><button class="pill solid dangerbtn" data-yes style="flex:1;justify-content:center;padding:12px">Delete church</button></div>`);
+    o.querySelector("[data-no]").onclick=()=>o.remove();
+    o.querySelector("[data-yes]").onclick=async()=>{ if(o.querySelector("#dcName").value.trim().toLowerCase()!==c.name.toLowerCase()) return toast("Type the church's name to confirm"); o.remove(); if(await api.deleteChurch(c.id)) toast(`${c.name} was deleted`); };
+  };
 }
 
 // ---------- SEARCH ----------
@@ -1250,14 +1458,18 @@ function renderMe(){
   const hls=Object.entries(S.highlights);
   const colorOf={gold:"#E0B44A",sky:"#7DB8D9",rose:"#E58A97"};
   const v=$("#view");
-  v.innerHTML=`<section class="card prof"><button class="ibtn gear" id="openSettings" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>${av('me')}<h2>${esc(S.profile.name)}</h2><small style="color:var(--muted)">@${esc(S.profile.handle)}${S.profile.church?` · ${esc(S.profile.church)}`:''}</small>
+  v.innerHTML=`<section class="card prof"><button class="ibtn gear" id="openSettings" aria-label="Settings"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>${av('me')}<h2>${esc(S.profile.name)}</h2><small style="color:var(--muted)">@${esc(S.profile.handle)}${currentChurch()?` · ${esc(currentChurch().name)}`:''}</small>
       <button class="pill" id="editProfile" style="margin-top:6px">Edit profile</button>
       <div class="stats"><div><b>${mine}</b><small>Posts</small></div><div><b>${Object.keys(S.streaks).length}</b><small>Friends</small></div><div><b>${S.streak}</b><small>Day streak</small></div></div></section>
+    ${currentChurch()?`<section class="card churchcard"><span class="pickicon">${ICON.church}</span><div class="m"><b>${esc(currentChurch().name)}</b><small>${ROLE_LABEL[currentChurch().role]}${S.churches.length>1?` · ${S.churches.length} churches`:""}</small></div>
+      <button class="pill" id="meInvite">Invite</button><button class="pill solid" id="meChurch">${isChurchAdmin()?"Manage":"Open"}</button></section>`:""}
     <div class="sec-h"><h3>Highlights</h3><small>${hls.length} verses</small></div>
     <div class="card hlgrid">${hls.length?hls.map(([k,h])=>`<div class="hl"><i style="background:${colorOf[h.c]}"></i><div>${esc(h.t)}<div style="font-family:var(--body);font-weight:600;font-size:13px;color:var(--accent);margin-top:4px">${esc(k)} ${esc(h.tr||"")}</div></div></div>`).join(""):'<div class="empty">Tap any verse in the Bible tab to highlight it.</div>'}</div>
     `;
   $("#openSettings").onclick=openSettings;
   $("#editProfile").onclick=openEditProfile;
+  const mi=$("#meInvite"); if(mi) mi.onclick=()=>openInvite(currentChurch());
+  const mc=$("#meChurch"); if(mc) mc.onclick=openChurchPage;
 }
 
 // shrink uploaded photos so they fit in browser storage
@@ -1277,7 +1489,6 @@ function openEditProfile(){
       <div class="row"><label class="pill">Change picture<input type="file" id="epFile" accept="image/*" class="vh"></label><button class="pill" id="epRemove">Remove</button></div></div>
     <label class="eyebrow" for="epName">Name</label><input class="field" id="epName" maxlength="40" value="${esc(S.profile.name)}" autocomplete="name">
     <label class="eyebrow" for="epHandle">Username</label><input class="field" id="epHandle" maxlength="24" value="${esc(S.profile.handle)}" autocomplete="off">
-    <label class="eyebrow" for="epChurch">Church</label><input class="field" id="epChurch" maxlength="40" value="${esc(S.profile.church||"")}" placeholder="Optional" autocomplete="off">
     <button class="pill solid" id="epSave" style="justify-content:center;padding:12px">Save</button>`);
   const nameIn=o.querySelector("#epName");
   const preview=()=>{ const keep=S.profile.photo, keepName=S.profile.name; S.profile.photo=photo; S.profile.name=nameIn.value.trim()||"?"; o.querySelector("#epAv").innerHTML=av("me"); S.profile.photo=keep; S.profile.name=keepName; o.querySelector("#epRemove").hidden=!photo; };
@@ -1292,7 +1503,7 @@ function openEditProfile(){
     if(!name){ toast("Enter a name"); return; }
     if(!handle){ toast("Enter a username"); return; }
     if(!/^[a-zA-Z0-9_.]{3,24}$/.test(handle)){ toast("Usernames are 3 to 24 letters, numbers, dots or underscores"); return; }
-    const next={name,handle:handle.toLowerCase(),church:o.querySelector("#epChurch").value.trim(),photo};
+    const next={name,handle:handle.toLowerCase(),church:S.profile.church||"",photo};
     const btn=o.querySelector("#epSave"); btn.disabled=true; btn.textContent="Saving…";
     api.saveProfile(next).then(ok=>{
       if(!ok){ btn.disabled=false; btn.textContent="Save"; return; }
@@ -1302,7 +1513,7 @@ function openEditProfile(){
 }
 
 // ---------- NOTIFICATIONS ----------
-const tyIcon = t => TYICON[t] || (t==="pray"||t==="prayed" ? TYICON.like : TYICON.message);
+const tyIcon = t => TYICON[t] || (t==="pray"||t==="prayed" ? TYICON.like : t.startsWith("join") ? ICON.church.replace(/width="22" height="22"/,'width="11" height="11"') : TYICON.message);
 const TYICON={
   like:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5-10-10a5.5 5.5 0 0 1 10-3.5A5.5 5.5 0 0 1 22 11c-2 5-10 10-10 10z"/></svg>',
   comment:'<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18v13H9l-6 5z"/></svg>',
@@ -1319,6 +1530,9 @@ function notifLine(n){
   if(n.type==="glass") return `${who} sent you a Looking Glass`;
   if(n.type==="friend_request") return `${who} sent you a friend request`;
   if(n.type==="friend_accept") return `${who} accepted your friend request`;
+  if(n.type==="join_request") return `${who} asked to join ${esc(n.text||"your church")}`;
+  if(n.type==="join_approved") return `${who} approved you. Welcome to ${esc(n.text||"the church")}!`;
+  if(n.type==="made_admin") return `${who} made you ${n.text&&n.text.startsWith("owner:")?"the owner":"an admin"} of ${esc((n.text||"").replace(/^owner:/,"")||"your church")}`;
   return `${who} sent you a message${q}`;
 }
 function updateBell(){
@@ -1350,6 +1564,12 @@ function openNotif(n){
   n.read=true; save();
   clearInterval(storyTimer); closeCreate();
   document.querySelectorAll(".ov").forEach(x=>x.remove());
+  if(n.type==="join_request"||n.type==="join_approved"||n.type==="made_admin"){
+    const go2=()=>{ if(n.type==="join_approved") { S.tab="home"; render(); } else openChurchPage(); };
+    if(n.churchId && n.churchId!==S.church && (S.churches||[]).some(c=>c.id===n.churchId && c.status==="active")){ S.church=n.churchId; save(); Promise.resolve(api.switchChurch(n.churchId)).then(go2); }
+    else go2();
+    return;
+  }
   if(n.type==="message"||n.type==="glass"||n.type==="friend_accept"){ if(S.streaks[n.from]!==undefined){ render(); openThread(n.from); return; } }
   if(n.type==="friend_request"||n.type==="prayed"||n.type==="glass"||n.type==="friend_accept"||n.type==="message"){ S.tab="chats"; save(); render(); $("#view").scrollTop=0; return; }
   const p=S.posts.find(x=>x.id===n.postId);

@@ -44,6 +44,9 @@ function describe(type: string, text: string | null): string {
     case "glass": return "Sent you a Looking Glass";
     case "friend_request": return "Sent you a friend request";
     case "friend_accept": return "Accepted your friend request";
+    case "join_request": return text ? `Asked to join ${text}` : "Asked to join your church";
+    case "join_approved": return text ? `Approved you. Welcome to ${text}!` : "Approved your request to join";
+    case "made_admin": return text?.startsWith("owner:") ? `Made you the owner of ${text.slice(6)}` : `Made you an admin of ${text ?? "your church"}`;
     default: return "New activity on Selah";
   }
 }

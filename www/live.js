@@ -7,8 +7,9 @@
 // and replaces the do-nothing `api` calls with real ones.
 
 let sb = null, ME = null, liveUserEmail = "";
+const JOIN_KEY = "selah-join"; // an invite link's code, kept while someone signs up or logs in
 let refreshTimer = 0, saveTimer = 0, liveEntered = false, catchUpStarted = false, liveReady = false;
-const PERSONAL = ["read", "done", "streak", "readDay", "planDay", "highlights", "notifPrefs", "theme", "hiddenPosts", "seen"];
+const PERSONAL = ["read", "done", "streak", "readDay", "planDay", "highlights", "notifPrefs", "theme", "hiddenPosts", "seen", "church"];
 
 function liveBlankState() {
   return {
@@ -16,7 +17,7 @@ function liveBlankState() {
     tab: "home", read: { tr: "kjv", b: 18, c: 23 }, done: {}, streak: 0, readDay: "", planDay: 1, highlights: {},
     notifPrefs: { like: true, comment: true, message: true }, theme: null, hiddenPosts: {}, seen: {},
     stories: { me: [] }, posts: [], snaps: [], sent: {}, streaks: {}, groups: [], dms: {}, unread: {},
-    prayers: [], notifs: [], blocked: {}, reports: [], requests: [], requested: {},
+    prayers: [], notifs: [], blocked: {}, reports: [], requests: [], requested: {}, churches: [], church: null,
     groupId: null, gtab: "discussion", nextId: 1, demoPing: true
   };
 }
@@ -82,6 +83,9 @@ async function startLive() {
   });
   Object.assign(api, liveApi);
   listenForPushTaps();
+  // opened from an invite link (…?join=CODE): remember the code until they're signed in
+  const join = new URLSearchParams(location.search).get("join");
+  if (join) { devicePref(JOIN_KEY, join); history.replaceState(null, "", location.pathname + location.hash); }
   $("#view").innerHTML = `<p class="loading" style="text-align:center;padding-block:48px">Loading…</p>`;
   sb.auth.onAuthStateChange((event, session) => {
     if (event === "PASSWORD_RECOVERY") setTimeout(openNewPassword, 0);
@@ -109,27 +113,41 @@ async function enterApp(user) {
   liveReady = true;
   applyTheme(); render();
   subscribeLive();
-  afterLoginPush();
+  const code = devicePref(JOIN_KEY);
+  if (code) devicePref(JOIN_KEY, "");
+  if (!currentChurch()) showChurchOnboarding(code);
+  else { afterLoginPush(); if (code) openJoinPreview(code); }
 }
 
 // ---------- loading everything ----------
 async function loadAll(first) {
   const since = new Date(Date.now() - 400 * 864e5).toISOString();
+  const mem = await sb.from("church_members").select("church_id, role, status, churches(id, name, city, requires_approval)").eq("user_id", ME)
+    .then(r => r, e => ({ error: e }));
+  if (mem.error) { console.warn(mem.error); return false; }
+  S.churches = mem.data.filter(m => m.status !== "removed" && m.churches).map(m => ({
+    id: m.church_id, name: m.churches.name, city: m.churches.city, requiresApproval: m.churches.requires_approval, role: m.role, status: m.status
+  })).sort((a, b) => a.name.localeCompare(b.name));
+  if (first) { try { const saved = (await sb.from("user_state").select("data").eq("user_id", ME).maybeSingle()).data; if (saved && saved.data && saved.data.church) S.church = saved.data.church; } catch (e) {} }
+  const active = S.churches.filter(c => c.status === "active");
+  if (!active.some(c => c.id === S.church)) S.church = active.length ? active[0].id : null;
+  const cid = S.church;
+  const none = Promise.resolve({ data: [] });
   const q = await Promise.all([
     sb.from("profiles").select("*").eq("id", ME).single(),
     sb.from("user_state").select("data").eq("user_id", ME).maybeSingle(),
     sb.from("friendships").select("*"),
     sb.from("blocks").select("blocked"),
-    sb.from("posts").select("*, post_reactions(kind,user_id), comments(id,author,body,created_at)")
-      .order("created_at", { ascending: false }).order("created_at", { referencedTable: "comments", ascending: true }).limit(100),
+    cid ? sb.from("posts").select("*, post_reactions(kind,user_id), comments(id,author,body,created_at)").eq("church_id", cid)
+      .order("created_at", { ascending: false }).order("created_at", { referencedTable: "comments", ascending: true }).limit(100) : none,
     sb.from("stories").select("*").order("created_at", { ascending: true }),
     sb.from("glasses").select("id,sender,recipient,created_at,opened_at").gte("created_at", since).order("created_at", { ascending: true }).limit(500),
     sb.from("messages").select("*").order("created_at", { ascending: true }).limit(1000),
-    sb.from("groups").select("*, group_members(user_id,role), events(*, event_rsvps(user_id))").order("name"),
-    sb.from("prayers").select("*, prayer_marks(user_id)").order("created_at", { ascending: false }).limit(100),
+    cid ? sb.from("groups").select("*, group_members(user_id,role), events(*, event_rsvps(user_id))").eq("church_id", cid).order("name") : none,
+    cid ? sb.from("prayers").select("*, prayer_marks(user_id)").eq("church_id", cid).order("created_at", { ascending: false }).limit(100) : none,
     sb.from("notifications").select("*").order("created_at", { ascending: false }).limit(60),
     sb.rpc("glass_streaks"),
-    sb.from("reports").select("id", { count: "exact", head: true })
+    sb.from("reports").select("id", { count: "exact", head: true }).eq("reporter", ME)
   ]).catch(e => { console.warn(e); return null; });
   if (!q || q.some(r => r.error)) { if (q) console.warn(q.filter(r => r.error).map(r => r.error.message)); return false; }
   const [prof, state, friends, blocks, posts, stories, glasses, msgs, groups, prayers, notifs, streaks, reports] = q.map(r => r.data);
@@ -150,7 +168,7 @@ async function loadAll(first) {
 
   // you
   S.profile = { name: prof.name, handle: prof.username, church: prof.church, photo: prof.avatar_url };
-  if (first && state && state.data) PERSONAL.forEach(k => { if (state.data[k] !== undefined) S[k] = state.data[k]; });
+  if (first && state && state.data) PERSONAL.forEach(k => { if (k !== "church" && state.data[k] !== undefined) S[k] = state.data[k]; });
 
   S.blocked = {}; blocks.forEach(b => S.blocked[b.blocked] = true);
   const streakOf = {}; (streaks || []).forEach(x => streakOf[x.friend] = x.days);
@@ -227,7 +245,7 @@ function rememberPerson(p) {
 const NOTIF_PREF = { like: "like", pray: "like", comment: "comment", message: "message", glass: "message" };
 const wantsNotif = type => !NOTIF_PREF[type] || S.notifPrefs[NOTIF_PREF[type]] !== false;
 function liveNotif(n) {
-  return { id: n.id, type: n.type, from: pid(n.actor), text: n.body || "", postId: n.post_id, time: Date.parse(n.created_at), read: !!n.read_at };
+  return { id: n.id, type: n.type, from: pid(n.actor), text: n.body || "", postId: n.post_id, churchId: n.church_id, time: Date.parse(n.created_at), read: !!n.read_at };
 }
 
 // Reload from the server soon (several changes in a row only reload once).
@@ -236,6 +254,9 @@ function scheduleRefresh(ms = 500) {
   refreshTimer = setTimeout(async () => {
     if (!ME) return;
     if (await loadAll(false)) {
+      // approved while waiting on the "find your church" screen
+      const ob = document.querySelector(".ov.church-ob");
+      if (ob && currentChurch()) { ob.remove(); S.tab = "home"; render(); toast(`Welcome to ${currentChurch().name}`); afterLoginPush(); return; }
       softRender();
       document.querySelectorAll(".ov.thread").forEach(o => o.draw && o.draw());
     }
@@ -288,7 +309,7 @@ const liveApi = {
     try {
       const photo = await uploadPhoto("media", post.img);
       const r = await sb.from("posts").insert({
-        caption: post.cap || "", art: post.art || null, image_url: photo.url, group_id: post.groupId || null,
+        caption: post.cap || "", art: post.art || null, image_url: photo.url, group_id: post.groupId || null, church_id: S.church,
         verse_text: post.verse ? post.verse.text : null, verse_ref: post.verse ? post.verse.ref : null
       }).select("id").single();
       if (r.error) throw r.error;
@@ -296,7 +317,7 @@ const liveApi = {
     } catch (e) { S.posts = S.posts.filter(x => x !== post); render(); failed(e, "share your post"); }
   },
   async addPrayer(pr) {
-    const r = await call("share your prayer request", sb.from("prayers").insert({ body: pr.t }).select("id").single());
+    const r = await call("share your prayer request", sb.from("prayers").insert({ body: pr.t, church_id: S.church }).select("id").single());
     if (r) pr.id = r.data.id;
   },
   async markPrayed(pr, on) {
@@ -369,7 +390,7 @@ const liveApi = {
     else await call("save your RSVP", sb.from("event_rsvps").delete().match({ event_id: e.id, user_id: ME }));
   },
   async createGroup(g) {
-    const r = await call("create the group", sb.from("groups").insert({ name: g.name, about: g.about, meets: g.meets, art: g.art, created_by: ME }).select("id").single());
+    const r = await call("create the group", sb.from("groups").insert({ name: g.name, about: g.about, meets: g.meets, art: g.art, created_by: ME, church_id: S.church }).select("id").single());
     return r && r.data.id;
   },
   async addEvent(g, e) {
@@ -407,6 +428,43 @@ const liveApi = {
       return { photo: photo.url };
     } catch (e) { failed(e, "save your profile"); return false; }
   },
+  // ---- churches ----
+  async churchCode(cid) { const r = await call("load the invite code", sb.rpc("church_code", { cid })); return r && r.data; },
+  async newChurchCode(cid) { return churchRpc("new_church_code", { cid }); },
+  async loadChurch(cid) {
+    const [code, mem, reps] = await Promise.all([
+      sb.rpc("church_code", { cid }),
+      sb.from("church_members").select("user_id, role, status, joined_at").eq("church_id", cid),
+      sb.from("reports").select("*").eq("church_id", cid).eq("status", "open").order("created_at", { ascending: false })
+    ]);
+    if (code.error || mem.error || reps.error) { failed(code.error || mem.error || reps.error, "load the church"); return null; }
+    await loadPeople(mem.data.map(m => m.user_id).concat(reps.data.map(x => x.reported_user)).filter(Boolean));
+    return {
+      code: code.data,
+      members: mem.data.map(m => ({ id: pid(m.user_id), role: m.role, status: m.status })),
+      reports: reps.data.map(x => ({ id: x.id, kind: x.kind, reason: x.reason, details: x.details, content: x.content,
+        who: x.reported_user ? pid(x.reported_user) : null, postId: x.post_id, commentId: x.comment_id, prayerId: x.prayer_id, time: Date.parse(x.created_at) }))
+    };
+  },
+  approveMember(cid, id) { return churchRpc("approve_member", { cid, member: realId(id) }); },
+  declineMember(cid, id) { return churchRpc("decline_member", { cid, member: realId(id) }); },
+  setRole(cid, id, role) { return churchRpc("set_member_role", { cid, member: realId(id), new_role: role }); },
+  removeMember(cid, id) { return churchRpc("remove_member", { cid, member: realId(id) }); },
+  allowBack(cid, id) { return churchRpc("allow_back", { cid, member: realId(id) }); },
+  resolveReport(rid, status) { return churchRpc("resolve_report", { rid, new_status: status }); },
+  async removeReported(rep) {
+    const [table, id] = rep.commentId ? ["comments", rep.commentId] : rep.prayerId ? ["prayers", rep.prayerId] : ["posts", rep.postId];
+    const r = await call("remove it", sb.from(table).delete().eq("id", id));
+    return !!r;
+  },
+  async saveChurch(cid, fields) {
+    const r = await call("save the church settings", sb.from("churches").update({ name: fields.name, city: fields.city, requires_approval: fields.requiresApproval }).eq("id", cid));
+    return !!r;
+  },
+  async leaveChurch(cid) { const ok = await churchRpc("leave_church", { cid }); if (ok) { S.church = null; await reloadChurches(); } return ok; },
+  async deleteChurch(cid) { const ok = await churchRpc("delete_church", { cid }); if (ok) { S.church = null; await reloadChurches(); } return ok; },
+  async switchChurch(cid) { S.church = cid; save(); await reloadChurches(); },
+
   async searchPeople(q) {
     const term = q.replace(/[%,()]/g, " ").trim();
     if (!term) return [];
@@ -427,9 +485,10 @@ function authShell(inner) {
 }
 function hideAuth() { document.querySelector(".auth")?.remove(); }
 function showAuth() {
-  document.querySelectorAll(".ov:not(.auth)").forEach(x => x.remove());
+  document.querySelectorAll(".ov:not(.auth), .ov.church-ob").forEach(x => x.remove());
   const o = authShell(`<div class="authhero"><div class="logo authlogo">Selah</div>
       <p>Share moments, read the Bible and pray together with your friends and church.</p></div>
+    ${devicePref(JOIN_KEY) ? `<p class="authnote">You've been invited to a church on Selah. Create an account or log in to join it.</p>` : ""}
     <button class="pill solid big" data-go="signup">Create an account</button>
     <button class="pill big" data-go="login">Log in</button>`);
   o.querySelector('[data-go="signup"]').onclick = showSignUp;
@@ -715,4 +774,128 @@ async function drawPushRow(row) {
     } else { await disablePush(false); toast("Notifications are off for this device"); }
     drawPushRow(row);
   };
+}
+
+// ---------- churches ----------
+// Church actions report their own readable errors ("Only church admins can do that"), so show those.
+async function churchRpc(fn, args) {
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) { toast(error.message.length < 140 ? error.message : "Something went wrong. Please try again."); return false; }
+  return data === null || data === undefined ? true : data;
+}
+// Reload everything for the current church (after switching, joining or leaving).
+async function reloadChurches() {
+  liveReady = false; render();
+  const ok = await loadAll(false);
+  liveReady = true;
+  if (!ok) { toast("Couldn't reach Selah. Check your connection."); return; }
+  S.tab = "home"; save(); render(); $("#view").scrollTop = 0;
+  if (!currentChurch()) showChurchOnboarding();
+}
+
+// Shown when someone belongs to no church yet (or is still waiting for approval).
+function showChurchOnboarding(code) {
+  document.querySelectorAll(".ov:not(.auth)").forEach(x => x.remove());
+  let o = document.querySelector(".ov.church-ob");
+  if (!o) { o = document.createElement("div"); o.className = "ov auth church-ob"; $("#app").appendChild(o); }
+  const waiting = S.churches.filter(c => c.status === "pending");
+  o.innerHTML = `<div class="authbox gut">
+    <div class="authhero"><div class="logo authlogo">Selah</div>
+      <p>Selah is shared within your church. Join yours with the invite code from a church leader, or start one.</p></div>
+    ${waiting.map(c => `<div class="card waitcard"><b>Waiting for ${esc(c.name)}</b><small>A church admin needs to approve you. You'll be able to get in as soon as they do.</small>
+      <button class="pill" data-recheck>Check again</button></div>`).join("")}
+    <div class="joinbox"></div>
+    <div class="ordiv"><span>or</span></div>
+    <button class="pill big" id="obStart">Start a church</button>
+    <button type="button" class="linkish" id="obLogout" style="align-self:center">Log out</button>
+  </div>`;
+  churchJoinFlow(o.querySelector(".joinbox"), code || "", () => { o.remove(); afterLoginPush(); });
+  if (code) o.querySelector("#joinGo").click(); // from an invite link: show the church right away
+  o.querySelectorAll("[data-recheck]").forEach(b => b.onclick = async () => {
+    await loadAll(false);
+    if (currentChurch()) { o.remove(); render(); afterLoginPush(); toast(`Welcome to ${currentChurch().name}`); }
+    else toast("Not approved yet");
+  });
+  o.querySelector("#obStart").onclick = () => {
+    const box = o.querySelector(".authbox");
+    box.innerHTML = `<button class="back" data-back>${ICON.back}Back</button><h2>Start a church</h2><div class="createbox"></div>`;
+    box.querySelector("[data-back]").onclick = showChurchOnboarding;
+    churchCreateFlow(box.querySelector(".createbox"), () => { o.remove(); afterLoginPush(); });
+  };
+  o.querySelector("#obLogout").onclick = liveLogout;
+}
+
+// Enter a code -> see which church it is -> join. Used on the first screen and from the church menu.
+function churchJoinFlow(box, code, done) {
+  box.innerHTML = `<form class="authform" novalidate>
+      <label class="eyebrow" for="joinCode">Invite code</label>
+      <input class="field codefield" id="joinCode" placeholder="Like 7KQ2-MX4P" autocomplete="off" autocapitalize="characters" spellcheck="false" value="${esc(code)}">
+      <p class="autherr" hidden></p>
+      <button class="pill solid big" id="joinGo">Continue</button>
+    </form>`;
+  const form = box.querySelector("form");
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const c = box.querySelector("#joinCode").value.replace(/[^A-Za-z0-9]/g, "");
+    if (c.length < 6) return authError(box, "Enter the invite code a church leader gave you.");
+    const { data, error } = await sb.rpc("church_preview", { code: c });
+    if (error || !data || !data.length) return authError(box, "That invite code didn't match a church. Check it and try again.");
+    const ch = data[0];
+    const already = S.churches.find(x => x.id === ch.id && x.status === "active");
+    box.innerHTML = `<div class="card churchpreview"><span class="pickicon">${ICON.church}</span><div class="m"><b>${esc(ch.name)}</b>
+        <small>${ch.city ? esc(ch.city) + " · " : ""}${ch.members} member${ch.members === 1 ? "" : "s"}</small></div></div>
+      ${ch.requires_approval && !already ? `<p class="authnote">A church admin approves new members, so you'll wait a little before you're in.</p>` : ""}
+      <p class="autherr" hidden></p>
+      <button class="pill solid big" id="joinYes">${already ? "Go to " + esc(ch.name) : "Join " + esc(ch.name)}</button>
+      <button type="button" class="linkish" id="joinNo" style="align-self:center">Use a different code</button>`;
+    box.querySelector("#joinNo").onclick = () => churchJoinFlow(box, "", done);
+    box.querySelector("#joinYes").onclick = async () => {
+      const btn = box.querySelector("#joinYes"); btn.disabled = true;
+      const status = already ? "active" : await churchRpc("join_church", { code: c });
+      if (!status) { btn.disabled = false; return; }
+      S.church = ch.id; save();
+      await loadAll(false);
+      if (status === "pending") {
+        toast(`Request sent to ${ch.name}. You'll see it in your churches once an admin approves you.`);
+        if (currentChurch()) { render(); done && done(); } else showChurchOnboarding();
+        return;
+      }
+      S.tab = "home"; render(); $("#view").scrollTop = 0;
+      toast(`Welcome to ${ch.name}`);
+      done && done();
+    };
+  };
+}
+
+function churchCreateFlow(box, done) {
+  box.innerHTML = `<form class="authform" novalidate>
+      <label class="eyebrow" for="ncName">Church name</label><input class="field" id="ncName" maxlength="80" placeholder="Like “Grace Community Church”" autocomplete="organization">
+      <label class="eyebrow" for="ncCity">City</label><input class="field" id="ncCity" maxlength="80" placeholder="Optional" autocomplete="address-level2">
+      <label class="setrow approvalrow" for="ncApproval"><div class="m"><b>Approve new members</b><small>Recommended. People with the code wait until an admin lets them in.</small></div><input type="checkbox" role="switch" class="switch" id="ncApproval" checked></label>
+      <p class="hint">You'll be the church's owner. You can make other leaders admins, and they'll help approve members and handle reports.</p>
+      <p class="autherr" hidden></p>
+      <button class="pill solid big" id="ncGo">Create church</button>
+    </form>`;
+  box.querySelector("form").onsubmit = async e => {
+    e.preventDefault();
+    const name = box.querySelector("#ncName").value.trim();
+    if (name.length < 2) return authError(box, "Enter your church's name.");
+    const btn = box.querySelector("#ncGo"); btn.disabled = true; btn.textContent = "Creating…";
+    const cid = await churchRpc("create_church", { church_name: name, church_city: box.querySelector("#ncCity").value.trim(), approval: box.querySelector("#ncApproval").checked });
+    if (!cid) { btn.disabled = false; btn.textContent = "Create church"; return; }
+    S.church = cid; save();
+    await loadAll(false);
+    S.tab = "home"; render();
+    done && done();
+    toast(`${name} is ready`);
+    openInvite(currentChurch(), true);
+  };
+}
+
+// Invite links open the app with ?join=CODE
+function openJoinPreview(code) {
+  const o = sheet(`<div class="row" style="justify-content:space-between"><h3>Join a church</h3><button class="ibtn" data-x aria-label="Close">${ICON.x}</button></div><div class="joinbox"></div>`);
+  o.querySelector("[data-x]").onclick = () => o.remove();
+  churchJoinFlow(o.querySelector(".joinbox"), code, () => o.remove());
+  o.querySelector("#joinGo").click(); // look the code up right away
 }

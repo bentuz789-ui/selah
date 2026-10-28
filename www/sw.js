@@ -1,5 +1,5 @@
 // Offline cache for the installable web version. Bump VERSION whenever files in www/ change.
-const VERSION = "selah-v6";
+const VERSION = "selah-v7";
 // Bible books are cached as they are opened, so the ones you read work offline.
 const FILES = [
   "./", "index.html", "manifest.webmanifest", "config.js", "live.js", "vendor/supabase.js",

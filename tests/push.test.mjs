@@ -21,6 +21,11 @@ async function user(name) {
   return { c, id: data.user.id };
 }
 const A = await user("Ana"), B = await user("Ben"), C = await user("Cal");
+// everyone in one church, so they can find and friend each other
+const { data: church } = await A.c.rpc("create_church", { church_name: "Push Test Church" });
+const { data: code } = await A.c.rpc("church_code", { cid: church });
+await B.c.rpc("join_church", { code });
+await C.c.rpc("join_church", { code });
 await A.c.from("friendships").insert({ requester: A.id, addressee: B.id });
 await B.c.from("friendships").update({ status: "accepted" }).match({ requester: A.id, addressee: B.id });
 
@@ -43,7 +48,7 @@ ok(by("web").title === "Ana" && by("web").encoding === "aes128gcm" && by("web").
 ok(!l.some(x => x.service === "error"), "no delivery errors");
 
 await reset();
-const { data: post } = await B.c.from("posts").insert({ caption: "Sunrise at camp" }).select().single();
+const { data: post } = await B.c.from("posts").insert({ caption: "Sunrise at camp", church_id: church }).select().single();
 await A.c.from("post_reactions").insert({ post_id: post.id, kind: "like" });
 l = await until(x => x.length >= 3);
 ok(by("apns").body === "Liked your post: “Sunrise at camp”" && by("fcm").data?.post_id === String(post.id), "likes say what was liked and which post");
