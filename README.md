@@ -215,7 +215,8 @@ On iPhone, Apple only allows notifications for websites that have been added to 
 2. Click **Add app › Android**. For the package name, enter your app id from `capacitor.config.json` (`com.selahapp.selah` unless you changed it). Download `google-services.json` and put it in `android/app/`.
 3. In Firebase, open **Project settings › Service accounts** and click **Generate new private key**. This downloads a JSON file. Keep it private: never put it in the app or share it.
 4. In **Edge Functions › Secrets**, add `FCM_SERVICE_ACCOUNT` and paste the entire contents of that JSON file.
-5. Run `npm run android` and build the app again.
+5. In `www/config.js`, set `androidPush: true`. (Until then, the Android app doesn't ask for notifications, because Android apps crash if they do without Firebase.)
+6. Run `npm run android` and build the app again.
 
 ### 5. iPhone
 
@@ -263,6 +264,16 @@ Requires [Node.js](https://nodejs.org) 20 or newer.
 npm install
 npm start            # open http://localhost:8080
 ```
+
+## Install on Android
+
+GitHub builds the Android app every time `main` changes (`.github/workflows/android.yml`). To install it on a phone:
+
+1. On GitHub, open the repository's **Actions** tab, click **Android app**, then the newest run with a green check.
+2. Under **Artifacts**, download **Selah-android**. It's a zip with `app-debug.apk` inside.
+3. Get the `.apk` onto the phone (download it there, or email it to yourself) and tap it. Android asks to allow installing apps from that source (your browser or Files app); allow it, then tap **Install**.
+
+Each build is signed with a fresh test key, so to install a newer build over an older one, uninstall Selah first. Your account and church are on the server, so nothing is lost, but you'll need to log in again. This is a test build: for the Play Store you need a signed release build (see "Build the Android app" below).
 
 ## Build the Android app
 

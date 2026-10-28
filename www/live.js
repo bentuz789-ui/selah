@@ -629,7 +629,10 @@ function openDeleteAccount() {
 const PUSH_KEY = "selah-push", PUSH_ASKED = "selah-push-asked";
 let pushListening = false, pendingPushOpen = null;
 const devicePref = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } };
-const nativePush = () => window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && Capacitor.Plugins && Capacitor.Plugins.PushNotifications;
+const isNativeApp = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+// Android crashes if it asks for push before Firebase is set up, so it waits for config.androidPush.
+const nativePush = () => isNativeApp() && Capacitor.Plugins && Capacitor.Plugins.PushNotifications
+  && !(Capacitor.getPlatform() === "android" && !SELAH_CONFIG.androidPush) ? Capacitor.Plugins.PushNotifications : null;
 const webPushReady = () => !!(SELAH_CONFIG.vapidPublicKey && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window);
 const isIOSBrowser = () => /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.navigator.standalone && !nativePush();
 
@@ -641,6 +644,7 @@ async function pushStatus() {
     if (perm.receive === "denied") return "blocked";
     return perm.receive === "granted" && devicePref(PUSH_KEY) === "on" ? "on" : "off";
   }
+  if (isNativeApp()) return "notready"; // a phone app whose push isn't set up yet
   if (isIOSBrowser()) return "install";
   if (!webPushReady()) return "unsupported";
   if (Notification.permission === "denied") return "blocked";
@@ -761,7 +765,8 @@ async function drawPushRow(row) {
     off: "Get notified even when Selah is closed",
     blocked: "Blocked in this device's settings. Allow notifications for Selah there, then come back.",
     install: "On iPhone, first add Selah to your Home Screen: tap Share, then Add to Home Screen.",
-    unsupported: "This browser can't show notifications."
+    unsupported: "This browser can't show notifications.",
+    notready: "Notifications for this app aren't set up yet."
   }[st];
   row.innerHTML = `<div class="m"><b>Push notifications</b><small>${text}</small></div>
     ${st === "on" || st === "off" ? `<input type="checkbox" role="switch" class="switch" id="pushSwitch" aria-label="Push notifications" ${st === "on" ? "checked" : ""}>` : ""}`;

@@ -1,0 +1,40 @@
+# Builds the Android app whenever main changes. Download it from the run's page:
+# Actions › Android app › the latest run › Artifacts › Selah-android (README, "Install on Android").
+name: Android app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install
+        run: npm ci
+
+      - name: Copy the app into the Android project
+        run: npx cap sync android
+
+      - name: Build
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Selah-android
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
