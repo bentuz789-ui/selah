@@ -215,8 +215,11 @@ On iPhone, Apple only allows notifications for websites that have been added to 
 2. Click **Add app › Android**. For the package name, enter your app id from `capacitor.config.json` (`com.selahapp.selah` unless you changed it). Download `google-services.json` and put it in `android/app/`.
 3. In Firebase, open **Project settings › Service accounts** and click **Generate new private key**. This downloads a JSON file. Keep it private: never put it in the app or share it.
 4. In **Edge Functions › Secrets**, add `FCM_SERVICE_ACCOUNT` and paste the entire contents of that JSON file.
-5. In `www/config.js`, set `androidPush: true`. (Until then, the Android app doesn't ask for notifications, because Android apps crash if they do without Firebase.)
-6. Run `npm run android` and build the app again.
+5. Turn on push in the app, in one of two ways:
+   - **Apps built by GitHub** (Actions › Android app): in your GitHub repository, open **Settings › Secrets and variables › Actions**, click **New repository secret**, name it `GOOGLE_SERVICES_JSON`, and paste the entire contents of `google-services.json`. The next build includes Firebase and turns push on by itself. To build right away, open **Actions › Android app › Run workflow**.
+   - **Apps you build yourself**: put `google-services.json` in `android/app/`, set `androidPush: true` in `www/config.js`, then run `npm run android`.
+
+   (Without Firebase, the Android app doesn't ask for notifications, because Android apps crash if they do.)
 
 ### 5. iPhone
 

@@ -26,6 +26,17 @@ jobs:
       - name: Install
         run: npm ci
 
+      # Push notifications: add the Firebase file as the repository secret GOOGLE_SERVICES_JSON
+      # (README, "Turn on push notifications"). Without it the app builds with push turned off.
+      - name: Add Firebase
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        if: env.GOOGLE_SERVICES_JSON != ''
+        run: |
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          sed -i 's/androidPush: false/androidPush: true/' www/config.js
+          grep -q 'androidPush: true' www/config.js
+
       - name: Copy the app into the Android project
         run: npx cap sync android
 
